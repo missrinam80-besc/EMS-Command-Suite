@@ -1,0 +1,380 @@
+{
+  "project": {
+    "name": "Vespucci Hospitaal EMS Webapp",
+    "type": "Standalone EMS web application",
+    "language": "nl",
+    "framework": "Next.js 16",
+    "ui_mode": "external browser app",
+    "backend": "Supabase",
+    "auth": "Supabase Auth with email and password",
+    "deployment_target": "Vercel",
+    "rp_context": {
+      "framework": "qbox",
+      "integration_mode": "standalone, no gameplay read/write",
+      "primary_rp_identity": "citizenid"
+    }
+  },
+  "product_scope": {
+    "v1_modules": [
+      "dashboard portal",
+      "patient registry",
+      "patient detail record",
+      "trauma reports",
+      "admission reports",
+      "cases for complex or specialized follow-up",
+      "personnel list",
+      "personnel detail records",
+      "evaluations",
+      "absences",
+      "rewards",
+      "strikepoints",
+      "management page",
+      "audit log page",
+      "guidelines handbook shell",
+      "organization shell"
+    ],
+    "out_of_scope_or_later": [
+      "direct gameplay integration with wasabi_ambulance_v2",
+      "direct gameplay integration with OP ambulance MDT",
+      "meetings full implementation",
+      "handbook full implementation",
+      "shift functions",
+      "portfolio holders"
+    ]
+  },
+  "core_decisions": {
+    "identity_model": {
+      "auth_identity": "Supabase auth user id",
+      "staff_rp_identity": "citizenid on profile_private_details",
+      "patients_and_staff": "separate tables, same citizenid may exist in both domains"
+    },
+    "patient_deletion": "soft delete",
+    "audit_log": {
+      "shape": "single central audit_logs table",
+      "immutability": true,
+      "track_before_after": true,
+      "track_changed_fields": true
+    },
+    "config_strategy": {
+      "patient_statuses": "system codes with UI-managed labels, colors, order, active flag",
+      "report_types": "database table, UI-manageable",
+      "warning_badges": "database table, UI-manageable"
+    },
+    "demo_mode": {
+      "local_fallback_allowed": true,
+      "production_mode": "real auth and real database preferred",
+      "env_flag": "NEXT_PUBLIC_ENABLE_DEMO_AUTH"
+    }
+  },
+  "roles_and_access": {
+    "medical_ranks": [
+      "rank_1 Medische Directie / Ziekenhuisdirectie",
+      "rank_2 Operationele Leiding",
+      "rank_3 Medisch Specialist / Arts",
+      "rank_4 Senior EMS",
+      "rank_5 EMS Personeel",
+      "rank_6 Trainee"
+    ],
+    "extra_login_roles": [
+      "administratie",
+      "directie_assistent"
+    ],
+    "extra_role_model": "stored as regular profiles with rank_id = null and extra permissions",
+    "permissions_notes": [
+      "directie sees everything",
+      "administratie and directie_assistent currently inherit the same permission shape as operationele leiding",
+      "operationele leiding deliberately has no beheerpagina/config/databasebeheer access",
+      "rank_5 and rank_6 may only edit their own reports",
+      "lower ranks may see a basic staff list without sensitive details",
+      "specializations can grant extra rights, but the detailed specialization-right matrix is still open"
+    ]
+  },
+  "specializations": {
+    "list": [
+      "ambulance",
+      "spoed_trauma",
+      "pit",
+      "mug",
+      "chirurgie",
+      "diagnostiek",
+      "forensisch",
+      "psychologie_nazorg",
+      "rescue",
+      "tactische_medische_ondersteuning",
+      "mentor_opleiding"
+    ],
+    "levels": [
+      "geen",
+      "basisbevoegd",
+      "bevoegd",
+      "instructeur"
+    ],
+    "note": "database supports specialization-based permissions, but concrete extra-right assignments per specialization are not finalized yet"
+  },
+  "patient_domain": {
+    "statuses": [
+      "actief_in_behandeling",
+      "opgenomen",
+      "observatie",
+      "stabiel_ontslagen",
+      "overleden",
+      "forensisch_politie"
+    ],
+    "status_colors": {
+      "actief_in_behandeling": "red",
+      "opgenomen": "orange",
+      "observatie": "yellow",
+      "stabiel_ontslagen": "green",
+      "overleden": "black_or_grey",
+      "forensisch_politie": "purple_or_blue"
+    },
+    "warning_badges_examples": [
+      "ALLERGIE",
+      "DIABETES",
+      "AGRESSIERISICO",
+      "POLITIE BETREKKEN",
+      "FORENSISCH DOSSIER"
+    ],
+    "patient_record_sections": [
+      "identification",
+      "medical data",
+      "management data",
+      "warning badges",
+      "staff-facing extra notes"
+    ],
+    "identification_fields": [
+      "full_name",
+      "citizenid",
+      "age_or_date_of_birth",
+      "phone",
+      "emergency_contact"
+    ],
+    "medical_fields": [
+      "blood_group",
+      "allergies",
+      "medication",
+      "chronic_conditions",
+      "medical_warnings"
+    ],
+    "management_fields": [
+      "created_by",
+      "updated_by"
+    ]
+  },
+  "case_domain": {
+    "purpose": "complex or specialized follow-up only, separate from standard report flow",
+    "statuses": [
+      "open",
+      "afgesloten",
+      "gearchiveerd",
+      "in_onderzoek",
+      "in_wacht"
+    ],
+    "rules": [
+      "a patient may have multiple cases",
+      "a report may exist without a case",
+      "cases have their own quick view and edit page"
+    ]
+  },
+  "report_domain": {
+    "types": [
+      "trauma",
+      "opname"
+    ],
+    "report_behavior": [
+      "reports can be linked to a case or be standalone",
+      "reports are visible in patient history",
+      "reports open from patient detail but are only editable from the report page itself",
+      "after creating or updating a report, redirect back to the patient record"
+    ],
+    "report_metadata": [
+      "author",
+      "report type",
+      "linked case",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  "personnel_domain": {
+    "personnel_list_columns": [
+      "roepnummer",
+      "naam",
+      "rang",
+      "specialisaties",
+      "status",
+      "detail action"
+    ],
+    "status_colors": {
+      "actief": "green",
+      "afwezig": "yellow",
+      "non-actief": "red"
+    },
+    "personnel_detail_sections": [
+      "profile data",
+      "salary calculation",
+      "specializations",
+      "rewards",
+      "strikepoints",
+      "evaluations",
+      "absences"
+    ],
+    "salary_model": "base salary by rank plus specialization bonuses, but database salary columns are not fully formalized yet",
+    "profile_editable_fields": [
+      "roepnummer",
+      "rang",
+      "telefoon",
+      "status"
+    ],
+    "profile_read_only_fields": [
+      "in_dienst_sinds"
+    ],
+    "detail_actions": [
+      "edit profiel",
+      "specialisaties beheren",
+      "beloning toevoegen",
+      "strikepoint toevoegen",
+      "nieuwe evaluatie",
+      "nieuwe afwezigheid",
+      "inloggegevens popup"
+    ],
+    "strikepoints": {
+      "requirements": [
+        "reason required when adding",
+        "reason required when removing",
+        "history visible under current total",
+        "remove via list of active strikepoints"
+      ]
+    }
+  },
+  "management_page": {
+    "purpose": "broader beheer page, not just audit log",
+    "layout": [
+      "databasebeheer full width on top",
+      "rapporttypenbeheer and tags_badges side by side",
+      "auditlog full width at bottom"
+    ],
+    "future_sections": [
+      "report types management",
+      "tags and badges management",
+      "database management"
+    ]
+  },
+  "ui_and_theme": {
+    "visual_direction": "calm blue hospital theme with optional dark mode",
+    "home_page": "staff portal, not marketing landing page",
+    "home_sections": [
+      "news",
+      "quick links",
+      "calendar for meetings and trainings",
+      "director welcome message"
+    ],
+    "top_navigation": [
+      "Dashboard",
+      "Auth status button",
+      "Theme toggle",
+      "Beheer only if permission is present"
+    ],
+    "login_flow": [
+      "login redirects directly to dashboard",
+      "dashboard shows personal welcome text with staff name"
+    ]
+  },
+  "database": {
+    "provider": "Supabase",
+    "schema_files": [
+      "supabase/schema.sql",
+      "supabase/seed.sql"
+    ],
+    "storage_buckets": [
+      "report-files",
+      "staff-files",
+      "meeting-files",
+      "images"
+    ],
+    "file_attachments": {
+      "tracked_metadata": [
+        "filename",
+        "bucket",
+        "storage_path",
+        "mime_type",
+        "size",
+        "uploader_profile_id",
+        "domain_type",
+        "target_id"
+      ]
+    },
+    "seeding_strategy": {
+      "local_and_staging": "full demo seed allowed",
+      "production": "minimal bootstrap only, no fake patient or staff records"
+    }
+  },
+  "environment": {
+    "required_runtime_env": [
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "NEXT_PUBLIC_ENABLE_DEMO_AUTH"
+    ],
+    "production_values": {
+      "NEXT_PUBLIC_ENABLE_DEMO_AUTH": "false"
+    },
+    "security_notes": [
+      "do not use the /rest/v1 path in NEXT_PUBLIC_SUPABASE_URL",
+      "SUPABASE_SERVICE_ROLE_KEY should not be exposed to the live app unless a server-side admin feature explicitly needs it",
+      "the service role key that was shared during setup should be rotated before production"
+    ]
+  },
+  "current_status": {
+    "implemented": [
+      "Supabase project bootstrapped",
+      "schema.sql and seed.sql applied without SQL errors",
+      "first directie admin user created and linked to rank_1",
+      "Supabase login working",
+      "permissions loaded from Supabase",
+      "page and action guards added",
+      "patients live reads and writes connected",
+      "reports live reads and writes connected",
+      "personnel live reads and writes largely connected",
+      "real audit log writes connected",
+      "beheer page reads audit log data",
+      "feedback banners and redirect-based success/error UX added",
+      "lint passes",
+      "build passes"
+    ],
+    "still_to_finish_before_confident_production_use": [
+      "full Vercel deployment",
+      "production env setup in Vercel",
+      "GitHub repo import into Vercel",
+      "final end-to-end production smoke test",
+      "optional specialization-specific permission matrix",
+      "remaining non-core modules like meetings and handbook"
+    ]
+  },
+  "vercel_deployment_notes": {
+    "deployment_model": "import GitHub repository into Vercel",
+    "env_vars_to_set_in_vercel": {
+      "NEXT_PUBLIC_SUPABASE_URL": "https://fgkhzkyvfjmtvpnytaxs.supabase.co",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY": "set to project anon key",
+      "NEXT_PUBLIC_ENABLE_DEMO_AUTH": "false"
+    },
+    "do_not_set_for_now": [
+      "SUPABASE_SERVICE_ROLE_KEY"
+    ],
+    "current_repo_state": {
+      "app_subfolder_initialized_as_repo": true,
+      "repo_root_path": "C:/Users/linda/Documents/New project 2/ems-webapp",
+      "default_branch": "main"
+    }
+  },
+  "recommended_next_steps": [
+    "push ems-webapp as a clean standalone GitHub repository",
+    "import that repository into Vercel",
+    "set production env vars in Vercel",
+    "deploy",
+    "run live smoke test: login, create patient, update patient, create case, create report, view audit log",
+    "rotate the leaked Supabase service role key before public production use"
+  ],
+  "import_guidance": {
+    "purpose": "use this file as starter context in a new project or new chat",
+    "suggested_prompt": "Load this JSON as the project handoff context and continue from the current implementation state without re-deciding product scope."
+  }
+}

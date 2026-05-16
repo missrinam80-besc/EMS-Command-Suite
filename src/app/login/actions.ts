@@ -1,0 +1,48 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { z } from "zod";
+import { clearDemoSession, createDemoSession } from "@/lib/auth";
+import { isDemoAuthEnabled } from "@/lib/env";
+import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+
+const loginSchema = z.object({
+  email: z.email("Vul een geldig e-mailadres in."),
+  password: z.string().min(8, "Wachtwoord moet minstens 8 tekens bevatten."),
+});
+
+export async function signInAction(formData: FormData) {
+  if (isDemoAuthEnabled()) {
+    await createDemoSession();
+    redirect("/");
+  }
+
+  const parsed = loginSchema.safeParse({
+    email: formData.get("email"),
+    password: formData.get("password"),
+  });
+
+  if (!parsed.success) {
+    redirect(`/login?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Ongeldige invoer.")}`);
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+
+  if (error) {
+    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect("/");
+}
+
+export async function signOutAction() {
+  if (isDemoAuthEnabled()) {
+    await clearDemoSession();
+    redirect("/login");
+  }
+
+  const supabase = await createSupabaseServerClient();
+  await supabase.auth.signOut();
+  redirect("/login");
+}
