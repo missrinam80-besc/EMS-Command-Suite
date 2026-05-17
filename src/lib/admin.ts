@@ -62,6 +62,18 @@ export type InfrastructureHealth = {
   auditLogCount: number;
 };
 
+export type AdminAuditLogRow = {
+  id: string;
+  action: string;
+  summary: string;
+  targetType: string;
+  targetId: string | null;
+  actorProfileId: string | null;
+  actorName: string | null;
+  targetLabel: string | null;
+  createdAt: string;
+};
+
 function uniquePermissions(codes: string[]): AppPermission[] {
   return [...new Set(codes)].filter((code): code is AppPermission => Boolean(code));
 }
@@ -361,4 +373,71 @@ export async function getInfrastructureHealth(): Promise<InfrastructureHealth> {
       auditLogCount: 0,
     };
   }
+}
+
+export async function getAdminAuditLogs(): Promise<AdminAuditLogRow[]> {
+  if (shouldUseDemoData() || !hasSupabaseEnv()) {
+    return [];
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const [{ data: logs, error: logsError }, { data: profiles, error: profilesError }] =
+    await Promise.all([
+      supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(200),
+      supabase.from("profiles").select("id, full_name"),
+    ]);
+
+  if (logsError || profilesError) {
+    return [];
+  }
+
+  const actorMap = new Map((profiles ?? []).map((profile) => [profile.id, profile.full_name]));
+  const patientIds = (logs ?? [])
+    .filter((log) => log.target_type === "patient" && log.target_id)
+    .map((log) => log.target_id as string);
+  const patientCaseIds = (logs ?? [])
+    .filter((log) => log.target_type === "patient_case" && log.target_id)
+    .map((log) => log.target_id as string);
+  const reportIds = (logs ?? [])
+    .filter((log) => log.target_type === "medical_report" && log.target_id)
+    .map((log) => log.target_id as string);
+
+  const [
+    { data: patients },
+    { data: patientCases },
+    { data: reports },
+  ] = await Promise.all([
+    patientIds.length
+      ? supabase.from("patients").select("id, full_name, citizenid").in("id", patientIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; full_name: string; citizenid: string }> }),
+    patientCaseIds.length
+      ? supabase.from("patient_cases").select("id, title").in("id", patientCaseIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
+    reportIds.length
+      ? supabase.from("medical_reports").select("id, title").in("id", reportIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
+  ]);
+
+  const patientMap = new Map((patients ?? []).map((item) => [item.id, `${item.full_name} · ${item.citizenid}`]));
+  const caseMap = new Map((patientCases ?? []).map((item) => [item.id, item.title]));
+  const reportMap = new Map((reports ?? []).map((item) => [item.id, item.title]));
+
+  return (logs ?? []).map((log) => ({
+    id: log.id,
+    action: log.action,
+    summary: log.summary,
+    targetType: log.target_type,
+    targetId: log.target_id ?? null,
+    actorProfileId: log.actor_profile_id ?? null,
+    actorName: log.actor_profile_id ? actorMap.get(log.actor_profile_id) ?? null : null,
+    targetLabel:
+      log.target_type === "patient"
+        ? patientMap.get(log.target_id ?? "") ?? null
+        : log.target_type === "patient_case"
+          ? caseMap.get(log.target_id ?? "") ?? null
+          : log.target_type === "medical_report"
+            ? reportMap.get(log.target_id ?? "") ?? null
+            : null,
+    createdAt: log.created_at,
+  }));
 }

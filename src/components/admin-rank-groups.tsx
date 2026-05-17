@@ -111,22 +111,6 @@ export function AdminRankGroups({ rankGroups, permissions }: AdminRankGroupsProp
                 </span>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                {group.permissionCodes.slice(0, 3).map((code) => (
-                  <span
-                    key={code}
-                    className="rounded-full bg-[var(--color-accent-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-ink)]"
-                  >
-                    {code}
-                  </span>
-                ))}
-                {group.permissionCodes.length > 3 ? (
-                  <span className="rounded-full border border-[var(--color-line)] px-3 py-1 text-xs text-[var(--color-muted)]">
-                    +{group.permissionCodes.length - 3} extra
-                  </span>
-                ) : null}
-              </div>
-
               <div className="mt-5 flex flex-wrap gap-2">
                 <button
                   type="button"

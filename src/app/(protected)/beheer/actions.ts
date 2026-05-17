@@ -112,6 +112,50 @@ function cleanOptional(value?: string) {
   return trimmed ? trimmed : null;
 }
 
+async function ensureUniqueUserFields(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  input: {
+    userId?: string;
+    email: string;
+    citizenId: string;
+    callSign?: string;
+    phone?: string;
+  },
+) {
+  const normalizedCallSign = cleanOptional(input.callSign);
+  const normalizedPhone = cleanOptional(input.phone);
+
+  const [
+    { data: emailRows },
+    { data: citizenRows },
+    { data: callSignRows },
+    { data: phoneRows },
+  ] = await Promise.all([
+    supabase.from("profile_private_details").select("profile_id").eq("email", input.email),
+    supabase.from("profile_private_details").select("profile_id").eq("citizenid", input.citizenId),
+    normalizedCallSign
+      ? supabase.from("profiles").select("id").eq("call_sign", normalizedCallSign)
+      : Promise.resolve({ data: [] as Array<{ id: string }> }),
+    normalizedPhone
+      ? supabase.from("profile_private_details").select("profile_id").eq("phone", normalizedPhone)
+      : Promise.resolve({ data: [] as Array<{ profile_id: string }> }),
+  ]);
+
+  const currentUserId = input.userId ?? null;
+  if ((emailRows ?? []).some((row) => row.profile_id !== currentUserId)) {
+    throw new Error("Dit e-mailadres is al in gebruik.");
+  }
+  if ((citizenRows ?? []).some((row) => row.profile_id !== currentUserId)) {
+    throw new Error("Deze citizenid is al in gebruik.");
+  }
+  if ((callSignRows ?? []).some((row) => row.id !== currentUserId)) {
+    throw new Error("Dit roepnummer is al in gebruik.");
+  }
+  if ((phoneRows ?? []).some((row) => row.profile_id !== currentUserId)) {
+    throw new Error("Dit telefoonnummer is al in gebruik.");
+  }
+}
+
 function parseUserPayload(formData: FormData) {
   return userSchema.parse({
     userId: String(formData.get("userId") ?? ""),
@@ -137,6 +181,13 @@ export async function createManagedUserAction(formData: FormData) {
     if (!parsed.password) {
       throw new Error("Een wachtwoord is verplicht bij het aanmaken van een gebruiker.");
     }
+
+    await ensureUniqueUserFields(supabase, {
+      email: parsed.email,
+      citizenId: parsed.citizenId,
+      callSign: parsed.callSign,
+      phone: parsed.phone,
+    });
 
     const adminClient = createAdminClient();
     const { data: createdUser, error: createError } = await adminClient.auth.admin.createUser({
@@ -170,7 +221,7 @@ export async function createManagedUserAction(formData: FormData) {
             ? parsed.rankId
             : null,
         employment_status: parsed.employmentStatus,
-        joined_at: cleanOptional(parsed.joinedAt),
+        joined_at: cleanOptional(parsed.joinedAt) ?? new Date().toISOString().slice(0, 10),
         created_by: session.userId,
         updated_by: session.userId,
       })
@@ -241,6 +292,14 @@ export async function updateManagedUserAction(formData: FormData) {
     if (!parsed.userId) {
       throw new Error("Gebruiker ontbreekt.");
     }
+
+    await ensureUniqueUserFields(supabase, {
+      userId: parsed.userId,
+      email: parsed.email,
+      citizenId: parsed.citizenId,
+      callSign: parsed.callSign,
+      phone: parsed.phone,
+    });
 
     const { data: existingProfile } = await supabase
       .from("profiles")

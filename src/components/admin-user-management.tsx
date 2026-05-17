@@ -90,6 +90,7 @@ export function AdminUserManagement({
   serviceRoleConfigured,
 }: AdminUserManagementProps) {
   const [openModal, setOpenModal] = useState<ModalKey>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (!openModal) return;
@@ -122,6 +123,7 @@ export function AdminUserManagement({
 
   const selectedUserInheritedPermissions = selectedUser?.inheritedPermissionCodes ?? [];
   const selectedUserDirectPermissions = selectedUser?.directPermissionCodes ?? [];
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <>
@@ -274,6 +276,7 @@ export function AdminUserManagement({
                 name="email"
                 type="email"
                 required
+                placeholder="naam@domein.xx"
                 className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-accent)]"
               />
             </label>
@@ -281,11 +284,18 @@ export function AdminUserManagement({
               Wachtwoord
               <input
                 name="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 minLength={8}
                 required
                 className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-accent)]"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((current) => !current)}
+                className="justify-self-start rounded-full border border-[var(--color-line)] px-3 py-1 text-xs font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-soft)]"
+              >
+                {showPassword ? "Verberg wachtwoord" : "Toon wachtwoord"}
+              </button>
             </label>
             <label className="grid gap-2 text-sm text-[var(--color-muted)]">
               Citizenid
@@ -356,6 +366,7 @@ export function AdminUserManagement({
               <input
                 name="joinedAt"
                 type="date"
+                defaultValue={today}
                 className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-accent)]"
               />
             </label>
@@ -390,6 +401,7 @@ export function AdminUserManagement({
                 name="email"
                 type="email"
                 required
+                placeholder="naam@domein.xx"
                 defaultValue={selectedUser.email}
                 className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-accent)]"
               />
@@ -398,11 +410,18 @@ export function AdminUserManagement({
               Nieuw wachtwoord
               <input
                 name="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 minLength={8}
                 placeholder="Leeg laten om niet te wijzigen"
                 className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-accent)]"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((current) => !current)}
+                className="justify-self-start rounded-full border border-[var(--color-line)] px-3 py-1 text-xs font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-soft)]"
+              >
+                {showPassword ? "Verberg wachtwoord" : "Toon wachtwoord"}
+              </button>
             </label>
             <label className="grid gap-2 text-sm text-[var(--color-muted)]">
               Citizenid
