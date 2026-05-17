@@ -1,6 +1,6 @@
 import { PatientAuditLogBoard } from "@/components/patient-audit-log-board";
 import { requirePermission } from "@/lib/auth";
-import { hasSupabaseEnv } from "@/lib/env";
+import { hasSupabaseEnv, shouldUseDemoData } from "@/lib/env";
 import {
   getAllPatientAuditLogs,
   getPatientManagementSnapshot,
@@ -98,6 +98,8 @@ function formatDateTime(value?: string | null) {
 
 export default async function BeheerPage() {
   await requirePermission("config.panel.read");
+  const demoMode = shouldUseDemoData();
+  const dataSourceLabel = demoMode ? "Bron: lokale demo" : hasSupabaseEnv() ? "Bron: Supabase" : "Bron: niet geconfigureerd";
 
   const [logs, patients, snapshot, reports] = await Promise.all([
     getAllPatientAuditLogs(),
@@ -157,7 +159,7 @@ export default async function BeheerPage() {
     {
       title: "Laatste dossierwijziging",
       value: latestPatientUpdate ? formatDateTime(latestPatientUpdate) : "Nog geen data",
-      detail: hasSupabaseEnv() ? "Bron: Supabase" : "Bron: demostore",
+      detail: dataSourceLabel,
     },
   ];
 
@@ -242,18 +244,18 @@ export default async function BeheerPage() {
                 Huidige datamodus
               </h3>
               <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">
-                De app draait momenteel in {hasSupabaseEnv() ? "Supabase-modus" : "demomodus"}.
+                De app draait momenteel in {demoMode ? "lokale demomodus" : hasSupabaseEnv() ? "Supabase-modus" : "niet-geconfigureerde modus"}.
                 Dit overzicht helpt later bij seedbeheer, datacontrole en migraties.
               </p>
             </div>
             <span
               className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
-                hasSupabaseEnv()
+                !demoMode && hasSupabaseEnv()
                   ? "bg-[#ddf7e5] text-[#1f7a3a]"
                   : "bg-[#fff1db] text-[#9a5b00]"
               }`}
             >
-              {hasSupabaseEnv() ? "Supabase actief" : "Demostore actief"}
+              {demoMode ? "Lokale demo actief" : hasSupabaseEnv() ? "Supabase actief" : "Supabase ontbreekt"}
             </span>
           </div>
         </div>

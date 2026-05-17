@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { isDemoAuthEnabled } from "@/lib/env";
+import { hasSupabaseEnv, isDemoAuthEnabled } from "@/lib/env";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
 const ALL_PERMISSION_CODES = [
@@ -62,6 +62,10 @@ export async function getAppSession(): Promise<AppSession | null> {
         permissions: [...ALL_PERMISSION_CODES],
       };
     }
+    return null;
+  }
+
+  if (!hasSupabaseEnv()) {
     return null;
   }
 

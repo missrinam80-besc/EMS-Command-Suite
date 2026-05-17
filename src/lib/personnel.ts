@@ -17,7 +17,7 @@ import {
   updateDemoStaffProfile,
 } from "@/lib/demo-store";
 import { mockRanks, mockSpecializations } from "@/lib/mock-data";
-import { hasSupabaseEnv } from "@/lib/env";
+import { shouldUseDemoData } from "@/lib/env";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
   Profile,
@@ -132,6 +132,8 @@ function buildWorkspaceRows(
   profiles: StaffProfile[],
   evaluations: StaffEvaluation[],
   absences: StaffAbsence[],
+  ranks?: Rank[],
+  specializations?: Specialization[],
 ): StaffWorkspaceRow[] {
   return profiles
     .map((profile) => {
@@ -143,7 +145,8 @@ function buildWorkspaceRows(
 
       return {
         ...profile,
-        salaryMonthly: calculateSalary(profile, mockRanks, mockSpecializations),
+        salaryMonthly:
+          ranks && specializations ? calculateSalary(profile, ranks, specializations) : null,
         latestEvaluationTitle: profileEvaluations[0]?.title ?? null,
         latestEvaluationAt: profileEvaluations[0]?.createdAt ?? null,
         activeAbsenceCount: profileAbsences.filter(isActiveAbsence).length,
@@ -252,11 +255,13 @@ function normalizeAbsence(absence: {
 }
 
 export async function getStaffWorkspaceRows(): Promise<StaffWorkspaceRow[]> {
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     return buildWorkspaceRows(
       getDemoStaffProfiles(),
       getDemoStaffEvaluations(),
       getDemoStaffAbsences(),
+      mockRanks,
+      mockSpecializations,
     );
   }
 
@@ -293,11 +298,7 @@ export async function getStaffWorkspaceRows(): Promise<StaffWorkspaceRow[]> {
     absencesError ||
     strikepointEntriesError
   ) {
-    return buildWorkspaceRows(
-      getDemoStaffProfiles(),
-      getDemoStaffEvaluations(),
-      getDemoStaffAbsences(),
-    );
+    return [];
   }
 
   const normalizedRanks: Rank[] = (ranks ?? []).map((rank) => ({
@@ -385,7 +386,7 @@ export async function getStaffDetail(profileId: string): Promise<StaffDetail | n
 }
 
 export async function getStaffEvaluations(profileId: string): Promise<StaffEvaluation[]> {
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     return getDemoStaffEvaluations()
       .filter((evaluation) => evaluation.employeeProfileId === profileId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -399,16 +400,14 @@ export async function getStaffEvaluations(profileId: string): Promise<StaffEvalu
     .order("created_at", { ascending: false });
 
   if (error) {
-    return getDemoStaffEvaluations()
-      .filter((evaluation) => evaluation.employeeProfileId === profileId)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return [];
   }
 
   return (data ?? []).map(normalizeEvaluation);
 }
 
 export async function getStaffAbsences(profileId: string): Promise<StaffAbsence[]> {
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     return getDemoStaffAbsences()
       .filter((absence) => absence.profileId === profileId)
       .sort((a, b) => b.startDate.localeCompare(a.startDate));
@@ -422,16 +421,14 @@ export async function getStaffAbsences(profileId: string): Promise<StaffAbsence[
     .order("start_date", { ascending: false });
 
   if (error) {
-    return getDemoStaffAbsences()
-      .filter((absence) => absence.profileId === profileId)
-      .sort((a, b) => b.startDate.localeCompare(a.startDate));
+    return [];
   }
 
   return (data ?? []).map(normalizeAbsence);
 }
 
 export async function getStaffRewards(profileId: string): Promise<StaffReward[]> {
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     return getDemoStaffRewards()
       .filter((reward) => reward.profileId === profileId)
       .sort((a, b) => b.grantedAt.localeCompare(a.grantedAt));
@@ -445,9 +442,7 @@ export async function getStaffRewards(profileId: string): Promise<StaffReward[]>
     .order("granted_at", { ascending: false });
 
   if (error) {
-    return getDemoStaffRewards()
-      .filter((reward) => reward.profileId === profileId)
-      .sort((a, b) => b.grantedAt.localeCompare(a.grantedAt));
+    return [];
   }
 
   return (data ?? []).map((reward) => ({
@@ -464,7 +459,7 @@ export async function getStaffRewards(profileId: string): Promise<StaffReward[]>
 export async function getStaffStrikepointEntries(
   profileId: string,
 ): Promise<StaffStrikepointEntry[]> {
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     return getDemoStaffStrikepointEntries()
       .filter((entry) => entry.profileId === profileId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -478,9 +473,7 @@ export async function getStaffStrikepointEntries(
     .order("created_at", { ascending: false });
 
   if (error) {
-    return getDemoStaffStrikepointEntries()
-      .filter((entry) => entry.profileId === profileId)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return [];
   }
 
   return (data ?? []).map((entry) => ({
@@ -497,7 +490,7 @@ export async function getStaffStrikepointEntries(
 }
 
 export async function getAvailableRanks(): Promise<Rank[]> {
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     return mockRanks;
   }
 
@@ -507,7 +500,7 @@ export async function getAvailableRanks(): Promise<Rank[]> {
     .select("*")
     .order("rank_number", { ascending: true });
   if (error) {
-    return mockRanks;
+    return [];
   }
 
   return (data ?? []).map((rank) => ({
@@ -519,14 +512,14 @@ export async function getAvailableRanks(): Promise<Rank[]> {
 }
 
 export async function getAvailableSpecializations(): Promise<Specialization[]> {
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     return mockSpecializations;
   }
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.from("specializations").select("*").order("name");
   if (error) {
-    return mockSpecializations;
+    return [];
   }
 
   return (data ?? []).map((specialization) => ({
@@ -556,7 +549,7 @@ export async function createStaffEvaluationRecord(
     outcome: parsed.outcome,
   };
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     addDemoStaffEvaluation({
       id: randomUUID(),
       employeeProfileId: parsed.employeeProfileId,
@@ -594,7 +587,7 @@ export async function createStaffEvaluationRecord(
 export async function createStaffAbsenceRecord(input: z.infer<typeof staffAbsenceSchema>) {
   const parsed = staffAbsenceSchema.parse(input);
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     addDemoStaffAbsence({
       id: randomUUID(),
       profileId: parsed.profileId,
@@ -643,7 +636,7 @@ export async function createStaffRewardRecord(
 ) {
   const parsed = staffRewardSchema.parse(input);
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     addDemoStaffReward({
       id: randomUUID(),
       profileId: parsed.profileId,
@@ -684,7 +677,7 @@ export async function addStaffStrikepointsRecord(
 ) {
   const parsed = staffStrikepointSchema.parse(input);
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     const profile = getDemoStaffProfiles().find((item) => item.id === parsed.profileId);
     if (!profile) {
       throw new Error("Medewerker niet gevonden.");
@@ -730,7 +723,7 @@ export async function removeStaffStrikepointsRecord(
 ) {
   const parsed = staffStrikepointRemovalSchema.parse(input);
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     const profile = getDemoStaffProfiles().find((item) => item.id === parsed.profileId);
     const entry = getDemoStaffStrikepointEntries().find((item) => item.id === parsed.entryId);
     if (!profile) {
@@ -774,7 +767,7 @@ export async function updateStaffProfileRecord(
 ) {
   const parsed = staffProfileUpdateSchema.parse(input);
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     const ranks = await getAvailableRanks();
     const rank = ranks.find((item) => item.id === parsed.rankId);
     updateDemoStaffProfile(parsed.profileId, {
@@ -832,7 +825,7 @@ export async function updateStaffSpecializationsRecord(
 ) {
   const parsed = staffSpecializationsSchema.parse(input);
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     const allSpecializations = await getAvailableSpecializations();
     const profile = getDemoStaffProfiles().find((item) => item.id === parsed.profileId);
     if (!profile) {
@@ -903,3 +896,13 @@ export function getStatusLabel(profile: Pick<Profile, "active">, activeAbsenceCo
   if (activeAbsenceCount > 0) return "afwezig";
   return "actief";
 }
+
+
+
+
+
+
+
+
+
+

@@ -19,6 +19,7 @@ const accessNotes = [
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const [resolvedSearchParams, session] = await Promise.all([searchParams, getAppSession()]);
   const feedback = readFeedback(resolvedSearchParams);
+  const demoMode = isDemoAuthEnabled();
 
   return (
     <main className="mx-auto flex min-h-[calc(100vh-9rem)] w-full max-w-7xl items-center px-6 py-10 md:px-10 lg:px-12">
@@ -71,7 +72,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </div>
           ) : null}
 
-          {isDemoAuthEnabled() ? (
+          {demoMode ? (
             <div className="mt-6 rounded-2xl border border-[var(--color-line)] bg-[var(--color-accent-soft)] px-4 py-3 text-sm text-[var(--color-muted)]">
               Demo-auth is actief. Dit formulier opent het dashboard met lokale voorbeelddata.
             </div>
@@ -87,7 +88,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               <input
                 type="email"
                 name="email"
-                defaultValue="demo@ems.local"
+                defaultValue={demoMode ? "demo@ems.local" : ""}
                 className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-accent)]"
               />
             </label>
@@ -96,7 +97,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               <input
                 type="password"
                 name="password"
-                defaultValue="demodemo"
+                defaultValue={demoMode ? "demodemo" : ""}
                 className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-accent)]"
               />
             </label>

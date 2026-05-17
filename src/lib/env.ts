@@ -5,6 +5,14 @@ export function hasSupabaseEnv() {
   );
 }
 
+export function isHostedRuntime() {
+  return process.env.VERCEL === "1" || Boolean(process.env.VERCEL_URL);
+}
+
+export function shouldUseDemoData() {
+  return !isHostedRuntime() && process.env.NEXT_PUBLIC_ENABLE_DEMO_AUTH === "true";
+}
+
 export function isDemoAuthEnabled() {
-  return !hasSupabaseEnv() || process.env.NEXT_PUBLIC_ENABLE_DEMO_AUTH === "true";
+  return shouldUseDemoData();
 }

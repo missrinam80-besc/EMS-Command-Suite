@@ -10,7 +10,7 @@ import {
   updateDemoPatient,
 } from "@/lib/demo-store";
 import { writeAuditLog } from "@/lib/audit";
-import { hasSupabaseEnv } from "@/lib/env";
+import { shouldUseDemoData } from "@/lib/env";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
   MedicalReport,
@@ -82,7 +82,7 @@ function normalizeReport(report: {
 export async function getReportAuthorLabel(authorProfileId: string) {
   if (!authorProfileId) return "Onbekend";
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     const profile = getDemoStaffProfiles().find((item) => item.id === authorProfileId);
     return profile?.fullName ?? authorProfileId;
   }
@@ -101,10 +101,8 @@ async function getReportsByPatient(
   patientId: string,
   reportType: ReportType,
 ): Promise<MedicalReport[]> {
-  if (!hasSupabaseEnv()) {
-    return getDemoReports()
-      .filter((report) => report.patientId === patientId && report.type === reportType)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  if (shouldUseDemoData()) {
+    return [];
   }
 
   const supabase = await createSupabaseServerClient();
@@ -116,17 +114,15 @@ async function getReportsByPatient(
     .order("created_at", { ascending: false });
 
   if (error) {
-    return getDemoReports()
-      .filter((report) => report.patientId === patientId && report.type === reportType)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return [];
   }
 
   return (data ?? []).map(normalizeReport);
 }
 
 export async function getAllMedicalReports(): Promise<MedicalReport[]> {
-  if (!hasSupabaseEnv()) {
-    return [...getDemoReports()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  if (shouldUseDemoData()) {
+    return [];
   }
 
   const supabase = await createSupabaseServerClient();
@@ -136,7 +132,7 @@ export async function getAllMedicalReports(): Promise<MedicalReport[]> {
     .order("created_at", { ascending: false });
 
   if (error) {
-    return [...getDemoReports()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return [];
   }
 
   return (data ?? []).map(normalizeReport);
@@ -147,7 +143,7 @@ export async function getReportById(
   reportType: ReportType,
   reportId: string,
 ): Promise<MedicalReport | null> {
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     return (
       getDemoReports().find(
         (report) =>
@@ -197,7 +193,7 @@ export async function createTraumaReport(input: z.infer<typeof traumaReportSchem
     followUp: parsed.followUp,
   };
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     const now = new Date().toISOString();
     addDemoReport({
       id: randomUUID(),
@@ -286,7 +282,7 @@ export async function createOpnameReport(input: z.infer<typeof opnameReportSchem
     wardNotes: parsed.wardNotes,
   };
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     const now = new Date().toISOString();
     addDemoReport({
       id: randomUUID(),
@@ -376,7 +372,7 @@ export async function updateTraumaReport(
     followUp: parsed.followUp,
   };
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     const now = new Date().toISOString();
     updateDemoReport(reportId, {
       caseId: parsed.caseId || null,
@@ -460,7 +456,7 @@ export async function updateOpnameReport(
     wardNotes: parsed.wardNotes,
   };
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     const now = new Date().toISOString();
     updateDemoReport(reportId, {
       caseId: parsed.caseId || null,
@@ -525,3 +521,6 @@ export async function updateOpnameReport(
   revalidatePath(`/zorg/patienten/${parsed.patientId}/rapporten/opname/${reportId}`);
   revalidatePath(`/zorg/patienten/${parsed.patientId}/rapporten/opname/${reportId}/bewerken`);
 }
+
+
+

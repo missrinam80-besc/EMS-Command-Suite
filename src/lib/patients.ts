@@ -5,16 +5,14 @@ import {
   addDemoCase,
   addDemoPatient,
   addDemoPatientAuditLog,
-  getDemoCases,
   getDemoPatientAuditLogs,
   getDemoPatients,
-  getDemoReports,
   removeDemoPatient,
   updateDemoCase,
   updateDemoPatient,
 } from "@/lib/demo-store";
 import { writeAuditLog } from "@/lib/audit";
-import { hasSupabaseEnv } from "@/lib/env";
+import { shouldUseDemoData } from "@/lib/env";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Patient, PatientAuditLog, PatientCase } from "@/types/domain";
 
@@ -46,7 +44,7 @@ export const patientCaseProfileSchema = z.object({
 });
 
 export async function getPatientAuditLogs(patientId: string): Promise<PatientAuditLog[]> {
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     return getDemoPatientAuditLogs()
       .filter((entry) => entry.patientId === patientId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -68,7 +66,7 @@ export async function getPatientAuditLogs(patientId: string): Promise<PatientAud
 }
 
 export async function getAllPatientAuditLogs(): Promise<PatientAuditLogRow[]> {
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     const patients = getDemoPatients();
     return getDemoPatientAuditLogs()
       .map((entry) => {
@@ -136,10 +134,10 @@ export async function getAllPatientAuditLogs(): Promise<PatientAuditLogRow[]> {
 }
 
 export async function getPatientManagementSnapshot(): Promise<PatientManagementSnapshot> {
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     return {
-      patients: getDemoPatients(),
-      cases: getDemoCases(),
+      patients: [],
+      cases: [],
     };
   }
 
@@ -156,8 +154,8 @@ export async function getPatientManagementSnapshot(): Promise<PatientManagementS
 
   if (patientsError || casesError) {
     return {
-      patients: getDemoPatients(),
-      cases: getDemoCases(),
+      patients: [],
+      cases: [],
     };
   }
 
@@ -268,8 +266,8 @@ function mapPatientRecord(
 }
 
 export async function getPatientWorkspaceRows(): Promise<PatientWorkspaceRow[]> {
-  if (!hasSupabaseEnv()) {
-    return buildWorkspaceRows(getDemoPatients(), getDemoReports());
+  if (shouldUseDemoData()) {
+    return [];
   }
 
   const supabase = await createSupabaseServerClient();
@@ -288,7 +286,7 @@ export async function getPatientWorkspaceRows(): Promise<PatientWorkspaceRow[]> 
     ]);
 
   if (patientsError || reportsError) {
-    return buildWorkspaceRows(getDemoPatients(), getDemoReports());
+    return [];
   }
 
   const normalizedPatients: Patient[] = (patients ?? []).map((patient) => mapPatientRecord(patient));
@@ -303,7 +301,7 @@ export async function getPatientWorkspaceRows(): Promise<PatientWorkspaceRow[]> 
 }
 
 export async function getPatientDetail(patientId: string): Promise<PatientDetail | null> {
-  if (hasSupabaseEnv()) {
+  if (!shouldUseDemoData()) {
     const supabase = await createSupabaseServerClient();
     const [
       { data: patient, error: patientError },
@@ -377,8 +375,8 @@ export async function getPatientDetail(patientId: string): Promise<PatientDetail
 }
 
 export async function getPatientCases(patientId: string): Promise<PatientCase[]> {
-  if (!hasSupabaseEnv()) {
-    return getDemoCases().filter((patientCase) => patientCase.patientId === patientId);
+  if (shouldUseDemoData()) {
+    return [];
   }
 
   const supabase = await createSupabaseServerClient();
@@ -389,7 +387,7 @@ export async function getPatientCases(patientId: string): Promise<PatientCase[]>
     .order("opened_at", { ascending: false });
 
   if (error) {
-    return getDemoCases().filter((patientCase) => patientCase.patientId === patientId);
+    return [];
   }
 
   return (data ?? []).map((patientCase) => ({
@@ -414,7 +412,7 @@ export async function getPatientCaseDetail(
 export async function createPatientRecord(input: z.infer<typeof patientSchema>) {
   const parsed = patientSchema.parse(input);
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     const patientId = randomUUID();
     const now = new Date().toISOString();
     addDemoPatient({
@@ -500,7 +498,7 @@ export async function createPatientRecord(input: z.infer<typeof patientSchema>) 
 export async function updatePatientNotes(patientId: string, notes: string) {
   const trimmedNotes = notes.trim();
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     const now = new Date().toISOString();
     updateDemoPatient(patientId, {
       notes: trimmedNotes || null,
@@ -555,7 +553,7 @@ export async function updatePatientProfile(input: z.infer<typeof patientProfileS
   const parsed = patientProfileSchema.parse(input);
   const now = new Date().toISOString();
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     updateDemoPatient(parsed.patientId, {
       fullName: parsed.fullName,
       citizenId: parsed.citizenId,
@@ -723,7 +721,7 @@ export async function updatePatientProfile(input: z.infer<typeof patientProfileS
 export async function deletePatientRecord(patientId: string) {
   const now = new Date().toISOString();
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     addDemoPatientAuditLog({
       id: randomUUID(),
       patientId,
@@ -774,7 +772,7 @@ export async function deletePatientRecord(patientId: string) {
 export async function createCaseRecord(input: z.infer<typeof caseSchema>) {
   const parsed = caseSchema.parse(input);
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     const now = new Date().toISOString();
     addDemoCase({
       id: randomUUID(),
@@ -843,7 +841,7 @@ export async function updatePatientCaseRecord(
   const parsed = patientCaseProfileSchema.parse(input);
   const now = new Date().toISOString();
 
-  if (!hasSupabaseEnv()) {
+  if (shouldUseDemoData()) {
     updateDemoCase(parsed.caseId, {
       title: parsed.title,
       summary: parsed.summary || null,
@@ -926,3 +924,8 @@ function buildWorkspaceRows(
 function cleanStringArray(values?: string[]) {
   return (values ?? []).map((value) => value.trim()).filter(Boolean);
 }
+
+
+
+
+
