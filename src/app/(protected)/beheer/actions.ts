@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requirePermission } from "@/lib/auth";
 import { buildFeedbackUrl } from "@/lib/feedback";
+import { writeAuditLog } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -131,6 +132,7 @@ export async function createManagedUserAction(formData: FormData) {
   try {
     const session = await requirePermission("config.database.read");
     const parsed = parseUserPayload(formData);
+    const supabase = await createSupabaseServerClient();
 
     if (!parsed.password) {
       throw new Error("Een wachtwoord is verplicht bij het aanmaken van een gebruiker.");
@@ -191,6 +193,33 @@ export async function createManagedUserAction(formData: FormData) {
       throw new Error(privateDetailsError.message);
     }
 
+    await writeAuditLog(supabase, {
+      targetType: "profile",
+      targetId: createdUser.user.id,
+      action: "profile_created",
+      summary: `Gebruiker aangemaakt: ${parsed.fullName}`,
+      afterState: {
+        fullName: parsed.fullName,
+        email: parsed.email,
+        citizenId: parsed.citizenId,
+        profileType: parsed.profileType,
+        rankId:
+          parsed.profileType === "medical_staff" && parsed.rankId && parsed.rankId !== "none"
+            ? parsed.rankId
+            : null,
+        employmentStatus: parsed.employmentStatus,
+      },
+      changedFields: [
+        "full_name",
+        "email",
+        "citizenid",
+        "profile_type",
+        "rank_id",
+        "employment_status",
+      ],
+      context: { admin_area: "user_management" },
+    });
+
     redirect(buildFeedbackUrl("/beheer", "success", "Gebruiker aangemaakt."));
   } catch (error) {
     redirect(
@@ -207,10 +236,22 @@ export async function updateManagedUserAction(formData: FormData) {
   try {
     const session = await requirePermission("config.database.read");
     const parsed = parseUserPayload(formData);
+    const supabase = await createSupabaseServerClient();
 
     if (!parsed.userId) {
       throw new Error("Gebruiker ontbreekt.");
     }
+
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("id, full_name, profile_type, call_sign, rank_id, employment_status, joined_at")
+      .eq("id", parsed.userId)
+      .single();
+    const { data: existingPrivateDetails } = await supabase
+      .from("profile_private_details")
+      .select("email, citizenid, phone")
+      .eq("profile_id", parsed.userId)
+      .single();
 
     const adminClient = createAdminClient();
     const authUpdatePayload: {
@@ -272,6 +313,45 @@ export async function updateManagedUserAction(formData: FormData) {
       throw new Error(privateDetailsError.message);
     }
 
+    await writeAuditLog(supabase, {
+      targetType: "profile",
+      targetId: parsed.userId,
+      action: "profile_updated",
+      summary: `Gebruiker bijgewerkt: ${parsed.fullName}`,
+      beforeState: {
+        ...(existingProfile ?? {}),
+        ...(existingPrivateDetails ?? {}),
+      },
+      afterState: {
+        fullName: parsed.fullName,
+        email: parsed.email,
+        citizenId: parsed.citizenId,
+        profileType: parsed.profileType,
+        rankId:
+          parsed.profileType === "medical_staff" && parsed.rankId && parsed.rankId !== "none"
+            ? parsed.rankId
+            : null,
+        callSign: cleanOptional(parsed.callSign),
+        phone: cleanOptional(parsed.phone),
+        employmentStatus: parsed.employmentStatus,
+        joinedAt: cleanOptional(parsed.joinedAt),
+        passwordChanged: Boolean(parsed.password),
+      },
+      changedFields: [
+        "full_name",
+        "email",
+        "citizenid",
+        "profile_type",
+        "rank_id",
+        "call_sign",
+        "phone",
+        "employment_status",
+        "joined_at",
+        ...(parsed.password ? ["password"] : []),
+      ],
+      context: { admin_area: "user_management", updated_by: session.userId },
+    });
+
     redirect(buildFeedbackUrl("/beheer", "success", "Gebruiker bijgewerkt."));
   } catch (error) {
     redirect(
@@ -286,13 +366,17 @@ export async function updateManagedUserAction(formData: FormData) {
 
 export async function updateManagedUserPermissionsAction(formData: FormData) {
   try {
-    await requirePermission("config.database.read");
+    const session = await requirePermission("config.database.read");
     const parsed = permissionsSchema.parse({
       profileId: String(formData.get("profileId") ?? ""),
       permissionIds: formData.getAll("permissionIds").map(String),
     });
 
     const supabase = await createSupabaseServerClient();
+    const { data: currentPermissions } = await supabase
+      .from("profile_permissions")
+      .select("permission_id")
+      .eq("profile_id", parsed.profileId);
     await supabase.from("profile_permissions").delete().eq("profile_id", parsed.profileId);
 
     if (parsed.permissionIds.length) {
@@ -308,6 +392,19 @@ export async function updateManagedUserPermissionsAction(formData: FormData) {
       }
     }
 
+    await writeAuditLog(supabase, {
+      targetType: "profile_permissions",
+      targetId: parsed.profileId,
+      action: "profile_permissions_updated",
+      summary: "Directe gebruikersrechten bijgewerkt.",
+      beforeState: {
+        permissionIds: (currentPermissions ?? []).map((item) => item.permission_id),
+      },
+      afterState: { permissionIds: parsed.permissionIds },
+      changedFields: ["profile_permissions"],
+      context: { admin_area: "permissions", updated_by: session.userId },
+    });
+
     redirect(buildFeedbackUrl("/beheer", "success", "Gebruikersrechten bijgewerkt."));
   } catch (error) {
     redirect(
@@ -322,13 +419,17 @@ export async function updateManagedUserPermissionsAction(formData: FormData) {
 
 export async function updateRankPermissionGroupAction(formData: FormData) {
   try {
-    await requirePermission("config.database.read");
+    const session = await requirePermission("config.database.read");
     const parsed = rankPermissionSchema.parse({
       rankId: String(formData.get("rankId") ?? ""),
       permissionIds: formData.getAll("permissionIds").map(String),
     });
 
     const supabase = await createSupabaseServerClient();
+    const { data: currentPermissions } = await supabase
+      .from("rank_permissions")
+      .select("permission_id")
+      .eq("rank_id", parsed.rankId);
     await supabase.from("rank_permissions").delete().eq("rank_id", parsed.rankId);
 
     if (parsed.permissionIds.length) {
@@ -343,6 +444,19 @@ export async function updateRankPermissionGroupAction(formData: FormData) {
         throw new Error(error.message);
       }
     }
+
+    await writeAuditLog(supabase, {
+      targetType: "rank_permissions",
+      targetId: parsed.rankId,
+      action: "rank_permissions_updated",
+      summary: "Rangrechtengroep bijgewerkt.",
+      beforeState: {
+        permissionIds: (currentPermissions ?? []).map((item) => item.permission_id),
+      },
+      afterState: { permissionIds: parsed.permissionIds },
+      changedFields: ["rank_permissions"],
+      context: { admin_area: "permissions", updated_by: session.userId },
+    });
 
     redirect(buildFeedbackUrl("/beheer", "success", "Rechtengroep bijgewerkt."));
   } catch (error) {

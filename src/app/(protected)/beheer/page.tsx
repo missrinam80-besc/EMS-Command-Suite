@@ -1,13 +1,13 @@
 import { FeedbackBanner } from "@/components/feedback-banner";
 import { PatientAuditLogBoard } from "@/components/patient-audit-log-board";
 import { AdminUserManagement } from "@/components/admin-user-management";
+import { AdminRankGroups } from "@/components/admin-rank-groups";
 import { requirePermission } from "@/lib/auth";
 import {
   createPatientStatusAction,
   createReportTypeAction,
   createWarningBadgeAction,
   updatePatientStatusAction,
-  updateRankPermissionGroupAction,
   updateReportTypeAction,
   updateWarningBadgeAction,
 } from "@/app/(protected)/beheer/actions";
@@ -241,74 +241,7 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
         rankGroups={rankGroups}
         serviceRoleConfigured={health.serviceRoleConfigured}
       />
-
-      <section className="rounded-[1.75rem] border border-[var(--color-line)] bg-[var(--color-panel-strong)] p-6 shadow-[var(--shadow-soft)]">
-        <p className="text-sm uppercase tracking-[0.2em] text-[var(--color-muted)]">
-          Rechtengroepen
-        </p>
-        <h2 className="mt-2 text-2xl font-semibold text-[var(--color-ink)]">
-          Ranggebonden permissiematrix
-        </h2>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--color-muted)]">
-          Deze matrix bepaalt de standaardrechten per rang. Individuele gebruikersrechten
-          werken aanvullend bovenop deze groepen.
-        </p>
-
-        <div className="mt-6 grid gap-5 xl:grid-cols-2">
-          {rankGroups.map((group) => (
-            <form
-              key={group.rankId}
-              action={updateRankPermissionGroupAction}
-              className="rounded-[1.25rem] border border-[var(--color-line)] bg-[var(--color-surface)] p-5"
-            >
-              <input type="hidden" name="rankId" value={group.rankId} />
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-semibold text-[var(--color-ink)]">
-                    {group.rankName}
-                  </h3>
-                  <p className="mt-1 text-xs uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                    {group.rankCode}
-                  </p>
-                </div>
-                <span className="rounded-full border border-[var(--color-line)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-ink)]">
-                  {group.permissionCodes.length} rechten
-                </span>
-              </div>
-
-              <div className="mt-4 grid gap-3">
-                {permissions.map((permission) => (
-                  <label
-                    key={`${group.rankId}-${permission.id}`}
-                    className="flex items-start gap-3 rounded-2xl border border-[var(--color-line)] bg-[var(--color-panel)] px-4 py-3 text-sm text-[var(--color-ink)]"
-                  >
-                    <input
-                      type="checkbox"
-                      name="permissionIds"
-                      value={permission.id}
-                      defaultChecked={group.permissionCodes.includes(permission.code)}
-                      className="mt-1"
-                    />
-                    <span>
-                      <span className="block font-semibold">{permission.label}</span>
-                      <span className="mt-1 block text-xs uppercase tracking-[0.14em] text-[var(--color-muted)]">
-                        {permission.code}
-                      </span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-
-              <button
-                type="submit"
-                className="mt-5 rounded-full bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:brightness-105"
-              >
-                Rechtengroep opslaan
-              </button>
-            </form>
-          ))}
-        </div>
-      </section>
+      <AdminRankGroups rankGroups={rankGroups} permissions={permissions} />
 
       <section className="grid gap-6 xl:grid-cols-2">
         <section className="rounded-[1.75rem] border border-[var(--color-line)] bg-[var(--color-panel-strong)] p-6 shadow-[var(--shadow-soft)]">
