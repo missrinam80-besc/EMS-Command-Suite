@@ -43,10 +43,13 @@ values
   ('staff.read_sensitive', 'Gevoelig personeel bekijken', 'Volledige personeelsdossiers en HR-data bekijken.'),
   ('staff.update', 'Personeel bewerken', 'Personeelsdossiers, evaluaties en HR-data beheren.'),
   ('config.panel.read', 'Beheerpagina openen', 'De beheerpagina openen.'),
+  ('config.ranks.manage', 'Rangen beheren', 'Rangen aanmaken en aanpassen via de UI.'),
   ('config.report_types.manage', 'Rapporttypen beheren', 'Rapporttypen beheren via de UI.'),
+  ('config.forms.manage', 'Formulieren beheren', 'Formuliersjablonen en invulvelden beheren via de UI.'),
   ('config.badges.manage', 'Tags en badges beheren', 'Waarschuwingstags en badges beheren via de UI.'),
   ('config.patient_statuses.manage', 'Patientstatussen beheren', 'Patientstatussen beheren via de UI.'),
-  ('config.database.read', 'Databasebeheer openen', 'Operationeel databasebeheer en configuratie beheren.')
+  ('config.database.read', 'Databasebeheer openen', 'Operationeel databasebeheer en configuratie beheren.'),
+  ('config.database.restart', 'Database herstart beheren', 'Herstartverzoeken en reconnect-acties registreren via de UI.')
 on conflict (code) do update
 set
   label = excluded.label,
@@ -146,10 +149,13 @@ with rank_permission_matrix as (
     'staff.read_sensitive',
     'staff.update',
     'config.panel.read',
+    'config.ranks.manage',
     'config.report_types.manage',
+    'config.forms.manage',
     'config.badges.manage',
     'config.patient_statuses.manage',
-    'config.database.read'
+    'config.database.read',
+    'config.database.restart'
   ]) as permission_code
   union all
   select 'rank_2', unnest(array[

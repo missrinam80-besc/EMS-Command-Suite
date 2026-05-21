@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { requestDatabaseRestartAction } from "@/app/(protected)/beheer/actions";
 import type { InfrastructureHealth } from "@/lib/admin";
 
 type AdminInfrastructureBoardProps = {
@@ -139,9 +140,17 @@ export function AdminInfrastructureBoard({ health }: AdminInfrastructureBoardPro
                 Handmatige beheeracties
               </span>
               <span className="mt-2 block text-[var(--color-ink)]">
-                Herstarten van Vercel of Supabase vereist momenteel nog een externe API-koppeling
-                of manuele actie buiten deze webapp.
+                Een volledige Supabase herstart vereist nog steeds een externe actie. Deze knop
+                registreert wel een herstartverzoek en forceert een nieuwe health-check in de app.
               </span>
+              <form action={requestDatabaseRestartAction} className="mt-3">
+                <button
+                  type="submit"
+                  className="rounded-full border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-soft)]"
+                >
+                  Database herstartverzoek registreren
+                </button>
+              </form>
             </div>
           </div>
         </div>

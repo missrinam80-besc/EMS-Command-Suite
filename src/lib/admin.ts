@@ -35,6 +35,16 @@ export type RankPermissionGroup = {
   permissionCodes: AppPermission[];
 };
 
+export type ManagedRank = {
+  id: string;
+  code: string;
+  name: string;
+  rankNumber: number;
+  colorHex: string | null;
+  description: string | null;
+  isActive: boolean;
+};
+
 export type ManagedCatalogItem = {
   id: string;
   code: string;
@@ -44,6 +54,41 @@ export type ManagedCatalogItem = {
   isActive: boolean;
   isSystem: boolean;
   description?: string | null;
+};
+
+export type ManagedFormTemplate = {
+  id: string;
+  code: string;
+  label: string;
+  description: string | null;
+  reportTypeCode: string | null;
+  isActive: boolean;
+  isSystem: boolean;
+  fieldCount: number;
+  updatedAt: string;
+};
+
+export type ManagedFormField = {
+  id: string;
+  templateId: string;
+  fieldKey: string;
+  label: string;
+  fieldType:
+    | "text"
+    | "textarea"
+    | "number"
+    | "date"
+    | "datetime"
+    | "select"
+    | "multiselect"
+    | "checkbox"
+    | "radio";
+  placeholder: string | null;
+  helpText: string | null;
+  options: string[];
+  isRequired: boolean;
+  sortOrder: number;
+  isActive: boolean;
 };
 
 export type InfrastructureHealth = {
@@ -233,6 +278,32 @@ export async function getRankPermissionGroups(): Promise<RankPermissionGroup[]> 
   }));
 }
 
+export async function getManagedRanks(): Promise<ManagedRank[]> {
+  if (shouldUseDemoData() || !hasSupabaseEnv()) {
+    return [];
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("ranks")
+    .select("id, code, name, rank_number, color_hex, description, is_active")
+    .order("rank_number", { ascending: true });
+
+  if (error) {
+    return [];
+  }
+
+  return (data ?? []).map((rank) => ({
+    id: rank.id,
+    code: rank.code,
+    name: rank.name,
+    rankNumber: rank.rank_number,
+    colorHex: rank.color_hex,
+    description: rank.description,
+    isActive: rank.is_active,
+  }));
+}
+
 async function getManagedCatalog(
   table: "report_types" | "warning_badges" | "patient_statuses",
 ): Promise<ManagedCatalogItem[]> {
@@ -294,6 +365,79 @@ export async function getManagedWarningBadges() {
 
 export async function getManagedPatientStatuses() {
   return getManagedCatalog("patient_statuses");
+}
+
+export async function getManagedFormTemplates(): Promise<ManagedFormTemplate[]> {
+  if (shouldUseDemoData() || !hasSupabaseEnv()) {
+    return [];
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const [{ data: templates, error: templatesError }, { data: fields, error: fieldsError }] =
+    await Promise.all([
+      supabase
+        .from("form_templates")
+        .select("id, code, label, description, report_type_code, is_active, is_system, updated_at")
+        .order("code", { ascending: true }),
+      supabase.from("form_template_fields").select("template_id, is_active"),
+    ]);
+
+  if (templatesError || fieldsError) {
+    return [];
+  }
+
+  const fieldCountMap = new Map<string, number>();
+  for (const field of fields ?? []) {
+    if (!field.is_active) continue;
+    const current = fieldCountMap.get(field.template_id) ?? 0;
+    fieldCountMap.set(field.template_id, current + 1);
+  }
+
+  return (templates ?? []).map((template) => ({
+    id: template.id,
+    code: template.code,
+    label: template.label,
+    description: template.description,
+    reportTypeCode: template.report_type_code,
+    isActive: template.is_active,
+    isSystem: template.is_system,
+    fieldCount: fieldCountMap.get(template.id) ?? 0,
+    updatedAt: template.updated_at,
+  }));
+}
+
+export async function getManagedFormFields(): Promise<ManagedFormField[]> {
+  if (shouldUseDemoData() || !hasSupabaseEnv()) {
+    return [];
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("form_template_fields")
+    .select(
+      "id, template_id, field_key, label, field_type, placeholder, help_text, options, is_required, sort_order, is_active",
+    )
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    return [];
+  }
+
+  return (data ?? []).map((field) => ({
+    id: field.id,
+    templateId: field.template_id,
+    fieldKey: field.field_key,
+    label: field.label,
+    fieldType: field.field_type as ManagedFormField["fieldType"],
+    placeholder: field.placeholder,
+    helpText: field.help_text,
+    options: Array.isArray(field.options)
+      ? field.options.filter((entry): entry is string => typeof entry === "string")
+      : [],
+    isRequired: field.is_required,
+    sortOrder: field.sort_order,
+    isActive: field.is_active,
+  }));
 }
 
 export async function getInfrastructureHealth(): Promise<InfrastructureHealth> {

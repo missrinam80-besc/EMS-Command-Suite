@@ -2,12 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { updateRankPermissionGroupAction } from "@/app/(protected)/beheer/actions";
-import type { PermissionCatalogItem, RankPermissionGroup } from "@/lib/admin";
+import {
+  createRankAction,
+  updateRankPermissionGroupAction,
+} from "@/app/(protected)/beheer/actions";
+import type { ManagedRank, PermissionCatalogItem, RankPermissionGroup } from "@/lib/admin";
 
 type ModalKey = null | `view:${string}` | `edit:${string}`;
 
 type AdminRankGroupsProps = {
+  ranks: ManagedRank[];
   rankGroups: RankPermissionGroup[];
   permissions: PermissionCatalogItem[];
 };
@@ -56,7 +60,7 @@ function ModalShell({
   );
 }
 
-export function AdminRankGroups({ rankGroups, permissions }: AdminRankGroupsProps) {
+export function AdminRankGroups({ ranks, rankGroups, permissions }: AdminRankGroupsProps) {
   const [openModal, setOpenModal] = useState<ModalKey>(null);
 
   useEffect(() => {
@@ -90,6 +94,70 @@ export function AdminRankGroups({ rankGroups, permissions }: AdminRankGroupsProp
           Deze groepen bepalen de standaardrechten per rang. Open een snelle weergave om de
           actieve rechten te bekijken en bewerk ze pas indien nodig in een aparte popup.
         </p>
+
+        <form action={createRankAction} className="mt-5 grid gap-4 rounded-[1.25rem] border border-[var(--color-line)] bg-[var(--color-surface)] p-5">
+          <h3 className="text-lg font-semibold text-[var(--color-ink)]">Nieuwe rang aanmaken</h3>
+          <div className="grid gap-4 md:grid-cols-3">
+            <label className="grid gap-2 text-sm text-[var(--color-muted)]">
+              Code
+              <input
+                name="code"
+                required
+                placeholder="rank_7"
+                className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-[var(--color-ink)]"
+              />
+            </label>
+            <label className="grid gap-2 text-sm text-[var(--color-muted)]">
+              Naam
+              <input
+                name="name"
+                required
+                placeholder="Nieuwe rang"
+                className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-[var(--color-ink)]"
+              />
+            </label>
+            <label className="grid gap-2 text-sm text-[var(--color-muted)]">
+              Rangnummer
+              <input
+                type="number"
+                name="rankNumber"
+                required
+                min={1}
+                defaultValue={ranks.length + 1}
+                className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-[var(--color-ink)]"
+              />
+            </label>
+          </div>
+          <div className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+            <label className="grid gap-2 text-sm text-[var(--color-muted)]">
+              Kleur (hex)
+              <input
+                name="colorHex"
+                placeholder="#2d74c9"
+                className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-[var(--color-ink)]"
+              />
+            </label>
+            <label className="grid gap-2 text-sm text-[var(--color-muted)]">
+              Beschrijving
+              <input
+                name="description"
+                className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-[var(--color-ink)]"
+              />
+            </label>
+            <label className="flex items-center gap-3 rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)]">
+              <input type="checkbox" name="isActive" defaultChecked />
+              Actief
+            </label>
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              className="rounded-full bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:brightness-105"
+            >
+              Rang aanmaken
+            </button>
+          </div>
+        </form>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {rankGroups.map((group) => (

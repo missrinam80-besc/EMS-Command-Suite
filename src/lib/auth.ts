@@ -22,10 +22,13 @@ const ALL_PERMISSION_CODES = [
   "staff.read_sensitive",
   "staff.update",
   "config.panel.read",
+  "config.ranks.manage",
   "config.report_types.manage",
+  "config.forms.manage",
   "config.badges.manage",
   "config.patient_statuses.manage",
   "config.database.read",
+  "config.database.restart",
 ] as const;
 
 export type AppPermission = (typeof ALL_PERMISSION_CODES)[number];

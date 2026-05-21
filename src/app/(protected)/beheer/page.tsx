@@ -3,6 +3,7 @@ import { AdminAuditLogBoard } from "@/components/admin-audit-log-board";
 import { AdminUserManagement } from "@/components/admin-user-management";
 import { AdminRankGroups } from "@/components/admin-rank-groups";
 import { AdminConfigCatalogs } from "@/components/admin-config-catalogs";
+import { AdminFormTemplates } from "@/components/admin-form-templates";
 import { AdminInfrastructureBoard } from "@/components/admin-infrastructure-board";
 import { requirePermission } from "@/lib/auth";
 import {
@@ -11,6 +12,9 @@ import {
   getAdminAuditLogs,
   getInfrastructureHealth,
   getManagedPatientStatuses,
+  getManagedFormFields,
+  getManagedFormTemplates,
+  getManagedRanks,
   getManagedReportTypes,
   getManagedUsers,
   getManagedWarningBadges,
@@ -30,20 +34,26 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
   const [
     health,
     users,
+    ranks,
     permissions,
     rankGroups,
     reportTypes,
     warningBadges,
     patientStatuses,
+    formTemplates,
+    formFields,
     logs,
   ] = await Promise.all([
     getInfrastructureHealth(),
     getManagedUsers(),
+    getManagedRanks(),
     getPermissionCatalog(),
     getRankPermissionGroups(),
     getManagedReportTypes(),
     getManagedWarningBadges(),
     getManagedPatientStatuses(),
+    getManagedFormTemplates(),
+    getManagedFormFields(),
     getAdminAuditLogs(),
   ]);
 
@@ -106,11 +116,16 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
         rankGroups={rankGroups}
         serviceRoleConfigured={health.serviceRoleConfigured}
       />
-      <AdminRankGroups rankGroups={rankGroups} permissions={permissions} />
+      <AdminRankGroups ranks={ranks} rankGroups={rankGroups} permissions={permissions} />
       <AdminConfigCatalogs
         reportTypes={reportTypes}
         warningBadges={warningBadges}
         patientStatuses={patientStatuses}
+      />
+      <AdminFormTemplates
+        templates={formTemplates}
+        fields={formFields}
+        reportTypes={reportTypes}
       />
 
       <section className="w-full">

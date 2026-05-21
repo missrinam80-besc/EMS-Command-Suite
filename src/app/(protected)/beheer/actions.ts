@@ -82,6 +82,46 @@ const patientStatusUpdateSchema = z.object({
   isActive: z.boolean().default(true),
 });
 
+const rankCreateSchema = z.object({
+  code: z.string().trim().min(3, "Code is verplicht."),
+  name: z.string().trim().min(3, "Naam is verplicht."),
+  rankNumber: z.coerce.number().int().min(1, "Rangnummer moet minimaal 1 zijn."),
+  colorHex: z.string().trim().optional(),
+  description: z.string().trim().optional(),
+  isActive: z.boolean().default(true),
+});
+
+const formTemplateCreateSchema = z.object({
+  code: z.string().trim().min(2, "Code is verplicht."),
+  label: z.string().trim().min(2, "Label is verplicht."),
+  description: z.string().trim().optional(),
+  reportTypeCode: z.string().trim().optional(),
+  isActive: z.boolean().default(true),
+});
+
+const formFieldCreateSchema = z.object({
+  templateId: z.string().trim().min(1, "Formulier ontbreekt."),
+  fieldKey: z.string().trim().min(2, "Field key is verplicht."),
+  label: z.string().trim().min(2, "Label is verplicht."),
+  fieldType: z.enum([
+    "text",
+    "textarea",
+    "number",
+    "date",
+    "datetime",
+    "select",
+    "multiselect",
+    "checkbox",
+    "radio",
+  ]),
+  placeholder: z.string().trim().optional(),
+  helpText: z.string().trim().optional(),
+  options: z.string().trim().optional(),
+  isRequired: z.boolean().default(false),
+  sortOrder: z.coerce.number().int().min(0).default(100),
+  isActive: z.boolean().default(true),
+});
+
 function checkboxToBoolean(value: FormDataEntryValue | null) {
   return value === "on" || value === "true" || value === "1";
 }
@@ -110,6 +150,32 @@ async function waitForProfileRow(
 function cleanOptional(value?: string) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+async function writeAdminAudit(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  params: {
+    targetType: string;
+    targetId?: string | null;
+    action: string;
+    summary: string;
+    beforeState?: Record<string, unknown> | null;
+    afterState?: Record<string, unknown> | null;
+    changedFields?: string[];
+    adminArea: string;
+    updatedBy: string;
+  },
+) {
+  await writeAuditLog(supabase, {
+    targetType: params.targetType,
+    targetId: params.targetId ?? null,
+    action: params.action,
+    summary: params.summary,
+    beforeState: params.beforeState ?? null,
+    afterState: params.afterState ?? null,
+    changedFields: params.changedFields ?? [],
+    context: { admin_area: params.adminArea, updated_by: params.updatedBy },
+  });
 }
 
 async function ensureUniqueUserFields(
@@ -531,7 +597,7 @@ export async function updateRankPermissionGroupAction(formData: FormData) {
 
 export async function createReportTypeAction(formData: FormData) {
   try {
-    await requirePermission("config.report_types.manage");
+    const session = await requirePermission("config.report_types.manage");
     const parsed = reportTypeCreateSchema.parse({
       code: String(formData.get("code") ?? ""),
       label: String(formData.get("label") ?? ""),
@@ -542,29 +608,50 @@ export async function createReportTypeAction(formData: FormData) {
     });
 
     const supabase = await createSupabaseServerClient();
-    const { error } = await supabase.from("report_types").insert({
-      code: parsed.code,
-      label: parsed.label,
-      description: cleanOptional(parsed.description),
-      color_hex: cleanOptional(parsed.colorHex),
-      sort_order: parsed.sortOrder,
-      is_active: parsed.isActive,
-      is_system: false,
-    });
+    const { data: inserted, error } = await supabase
+      .from("report_types")
+      .insert({
+        code: parsed.code,
+        label: parsed.label,
+        description: cleanOptional(parsed.description),
+        color_hex: cleanOptional(parsed.colorHex),
+        sort_order: parsed.sortOrder,
+        is_active: parsed.isActive,
+        is_system: false,
+      })
+      .select("id")
+      .single();
 
     if (error) {
       throw new Error(error.message);
     }
 
+    await writeAdminAudit(supabase, {
+      targetType: "report_type",
+      targetId: inserted?.id ?? null,
+      action: "report_type_created",
+      summary: `Rapporttype aangemaakt: ${parsed.label}`,
+      afterState: parsed,
+      changedFields: ["code", "label", "description", "color_hex", "sort_order", "is_active"],
+      adminArea: "report_types",
+      updatedBy: session.userId,
+    });
+
     redirect(buildFeedbackUrl("/beheer", "success", "Rapporttype aangemaakt."));
   } catch (error) {
-    redirect(buildFeedbackUrl("/beheer", "error", error instanceof Error ? error.message : "Rapporttype kon niet worden aangemaakt."));
+    redirect(
+      buildFeedbackUrl(
+        "/beheer",
+        "error",
+        error instanceof Error ? error.message : "Rapporttype kon niet worden aangemaakt.",
+      ),
+    );
   }
 }
 
 export async function updateReportTypeAction(formData: FormData) {
   try {
-    await requirePermission("config.report_types.manage");
+    const session = await requirePermission("config.report_types.manage");
     const parsed = reportTypeUpdateSchema.parse({
       id: String(formData.get("id") ?? ""),
       label: String(formData.get("label") ?? ""),
@@ -575,6 +662,11 @@ export async function updateReportTypeAction(formData: FormData) {
     });
 
     const supabase = await createSupabaseServerClient();
+    const { data: current } = await supabase
+      .from("report_types")
+      .select("id, label, description, color_hex, sort_order, is_active")
+      .eq("id", parsed.id)
+      .single();
     const { error } = await supabase
       .from("report_types")
       .update({
@@ -590,15 +682,33 @@ export async function updateReportTypeAction(formData: FormData) {
       throw new Error(error.message);
     }
 
+    await writeAdminAudit(supabase, {
+      targetType: "report_type",
+      targetId: parsed.id,
+      action: "report_type_updated",
+      summary: `Rapporttype bijgewerkt: ${parsed.label}`,
+      beforeState: current ?? null,
+      afterState: parsed,
+      changedFields: ["label", "description", "color_hex", "sort_order", "is_active"],
+      adminArea: "report_types",
+      updatedBy: session.userId,
+    });
+
     redirect(buildFeedbackUrl("/beheer", "success", "Rapporttype bijgewerkt."));
   } catch (error) {
-    redirect(buildFeedbackUrl("/beheer", "error", error instanceof Error ? error.message : "Rapporttype kon niet worden bijgewerkt."));
+    redirect(
+      buildFeedbackUrl(
+        "/beheer",
+        "error",
+        error instanceof Error ? error.message : "Rapporttype kon niet worden bijgewerkt.",
+      ),
+    );
   }
 }
 
 export async function createWarningBadgeAction(formData: FormData) {
   try {
-    await requirePermission("config.badges.manage");
+    const session = await requirePermission("config.badges.manage");
     const parsed = badgeCreateSchema.parse({
       code: String(formData.get("code") ?? ""),
       label: String(formData.get("label") ?? ""),
@@ -608,28 +718,49 @@ export async function createWarningBadgeAction(formData: FormData) {
     });
 
     const supabase = await createSupabaseServerClient();
-    const { error } = await supabase.from("warning_badges").insert({
-      code: parsed.code,
-      label: parsed.label,
-      color_hex: cleanOptional(parsed.colorHex),
-      sort_order: parsed.sortOrder,
-      is_active: parsed.isActive,
-      is_system: false,
-    });
+    const { data: inserted, error } = await supabase
+      .from("warning_badges")
+      .insert({
+        code: parsed.code,
+        label: parsed.label,
+        color_hex: cleanOptional(parsed.colorHex),
+        sort_order: parsed.sortOrder,
+        is_active: parsed.isActive,
+        is_system: false,
+      })
+      .select("id")
+      .single();
 
     if (error) {
       throw new Error(error.message);
     }
 
+    await writeAdminAudit(supabase, {
+      targetType: "warning_badge",
+      targetId: inserted?.id ?? null,
+      action: "warning_badge_created",
+      summary: `Badge aangemaakt: ${parsed.label}`,
+      afterState: parsed,
+      changedFields: ["code", "label", "color_hex", "sort_order", "is_active"],
+      adminArea: "badges",
+      updatedBy: session.userId,
+    });
+
     redirect(buildFeedbackUrl("/beheer", "success", "Badge aangemaakt."));
   } catch (error) {
-    redirect(buildFeedbackUrl("/beheer", "error", error instanceof Error ? error.message : "Badge kon niet worden aangemaakt."));
+    redirect(
+      buildFeedbackUrl(
+        "/beheer",
+        "error",
+        error instanceof Error ? error.message : "Badge kon niet worden aangemaakt.",
+      ),
+    );
   }
 }
 
 export async function updateWarningBadgeAction(formData: FormData) {
   try {
-    await requirePermission("config.badges.manage");
+    const session = await requirePermission("config.badges.manage");
     const parsed = badgeUpdateSchema.parse({
       id: String(formData.get("id") ?? ""),
       label: String(formData.get("label") ?? ""),
@@ -639,6 +770,11 @@ export async function updateWarningBadgeAction(formData: FormData) {
     });
 
     const supabase = await createSupabaseServerClient();
+    const { data: current } = await supabase
+      .from("warning_badges")
+      .select("id, label, color_hex, sort_order, is_active")
+      .eq("id", parsed.id)
+      .single();
     const { error } = await supabase
       .from("warning_badges")
       .update({
@@ -653,15 +789,33 @@ export async function updateWarningBadgeAction(formData: FormData) {
       throw new Error(error.message);
     }
 
+    await writeAdminAudit(supabase, {
+      targetType: "warning_badge",
+      targetId: parsed.id,
+      action: "warning_badge_updated",
+      summary: `Badge bijgewerkt: ${parsed.label}`,
+      beforeState: current ?? null,
+      afterState: parsed,
+      changedFields: ["label", "color_hex", "sort_order", "is_active"],
+      adminArea: "badges",
+      updatedBy: session.userId,
+    });
+
     redirect(buildFeedbackUrl("/beheer", "success", "Badge bijgewerkt."));
   } catch (error) {
-    redirect(buildFeedbackUrl("/beheer", "error", error instanceof Error ? error.message : "Badge kon niet worden bijgewerkt."));
+    redirect(
+      buildFeedbackUrl(
+        "/beheer",
+        "error",
+        error instanceof Error ? error.message : "Badge kon niet worden bijgewerkt.",
+      ),
+    );
   }
 }
 
 export async function createPatientStatusAction(formData: FormData) {
   try {
-    await requirePermission("config.patient_statuses.manage");
+    const session = await requirePermission("config.patient_statuses.manage");
     const parsed = patientStatusCreateSchema.parse({
       code: String(formData.get("code") ?? ""),
       label: String(formData.get("label") ?? ""),
@@ -671,28 +825,49 @@ export async function createPatientStatusAction(formData: FormData) {
     });
 
     const supabase = await createSupabaseServerClient();
-    const { error } = await supabase.from("patient_statuses").insert({
-      code: parsed.code,
-      label: parsed.label,
-      color_hex: cleanOptional(parsed.colorHex),
-      sort_order: parsed.sortOrder,
-      is_active: parsed.isActive,
-      is_system: false,
-    });
+    const { data: inserted, error } = await supabase
+      .from("patient_statuses")
+      .insert({
+        code: parsed.code,
+        label: parsed.label,
+        color_hex: cleanOptional(parsed.colorHex),
+        sort_order: parsed.sortOrder,
+        is_active: parsed.isActive,
+        is_system: false,
+      })
+      .select("id")
+      .single();
 
     if (error) {
       throw new Error(error.message);
     }
 
-    redirect(buildFeedbackUrl("/beheer", "success", "Patiëntstatus aangemaakt."));
+    await writeAdminAudit(supabase, {
+      targetType: "patient_status",
+      targetId: inserted?.id ?? null,
+      action: "patient_status_created",
+      summary: `Patientstatus aangemaakt: ${parsed.label}`,
+      afterState: parsed,
+      changedFields: ["code", "label", "color_hex", "sort_order", "is_active"],
+      adminArea: "patient_statuses",
+      updatedBy: session.userId,
+    });
+
+    redirect(buildFeedbackUrl("/beheer", "success", "Patientstatus aangemaakt."));
   } catch (error) {
-    redirect(buildFeedbackUrl("/beheer", "error", error instanceof Error ? error.message : "Patiëntstatus kon niet worden aangemaakt."));
+    redirect(
+      buildFeedbackUrl(
+        "/beheer",
+        "error",
+        error instanceof Error ? error.message : "Patientstatus kon niet worden aangemaakt.",
+      ),
+    );
   }
 }
 
 export async function updatePatientStatusAction(formData: FormData) {
   try {
-    await requirePermission("config.patient_statuses.manage");
+    const session = await requirePermission("config.patient_statuses.manage");
     const parsed = patientStatusUpdateSchema.parse({
       id: String(formData.get("id") ?? ""),
       label: String(formData.get("label") ?? ""),
@@ -702,6 +877,11 @@ export async function updatePatientStatusAction(formData: FormData) {
     });
 
     const supabase = await createSupabaseServerClient();
+    const { data: current } = await supabase
+      .from("patient_statuses")
+      .select("id, label, color_hex, sort_order, is_active")
+      .eq("id", parsed.id)
+      .single();
     const { error } = await supabase
       .from("patient_statuses")
       .update({
@@ -716,8 +896,249 @@ export async function updatePatientStatusAction(formData: FormData) {
       throw new Error(error.message);
     }
 
-    redirect(buildFeedbackUrl("/beheer", "success", "Patiëntstatus bijgewerkt."));
+    await writeAdminAudit(supabase, {
+      targetType: "patient_status",
+      targetId: parsed.id,
+      action: "patient_status_updated",
+      summary: `Patientstatus bijgewerkt: ${parsed.label}`,
+      beforeState: current ?? null,
+      afterState: parsed,
+      changedFields: ["label", "color_hex", "sort_order", "is_active"],
+      adminArea: "patient_statuses",
+      updatedBy: session.userId,
+    });
+
+    redirect(buildFeedbackUrl("/beheer", "success", "Patientstatus bijgewerkt."));
   } catch (error) {
-    redirect(buildFeedbackUrl("/beheer", "error", error instanceof Error ? error.message : "Patiëntstatus kon niet worden bijgewerkt."));
+    redirect(
+      buildFeedbackUrl(
+        "/beheer",
+        "error",
+        error instanceof Error ? error.message : "Patientstatus kon niet worden bijgewerkt.",
+      ),
+    );
+  }
+}
+
+export async function createRankAction(formData: FormData) {
+  try {
+    const session = await requirePermission("config.ranks.manage");
+    const parsed = rankCreateSchema.parse({
+      code: String(formData.get("code") ?? ""),
+      name: String(formData.get("name") ?? ""),
+      rankNumber: Number(formData.get("rankNumber") ?? 0),
+      colorHex: String(formData.get("colorHex") ?? ""),
+      description: String(formData.get("description") ?? ""),
+      isActive: checkboxToBoolean(formData.get("isActive")),
+    });
+
+    const supabase = await createSupabaseServerClient();
+    const { data: inserted, error } = await supabase
+      .from("ranks")
+      .insert({
+        code: parsed.code,
+        name: parsed.name,
+        rank_number: parsed.rankNumber,
+        color_hex: cleanOptional(parsed.colorHex),
+        description: cleanOptional(parsed.description),
+        is_active: parsed.isActive,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await writeAdminAudit(supabase, {
+      targetType: "rank",
+      targetId: inserted?.id ?? null,
+      action: "rank_created",
+      summary: `Rang aangemaakt: ${parsed.name}`,
+      afterState: parsed,
+      changedFields: ["code", "name", "rank_number", "color_hex", "description", "is_active"],
+      adminArea: "ranks",
+      updatedBy: session.userId,
+    });
+
+    redirect(buildFeedbackUrl("/beheer", "success", "Rang aangemaakt."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer",
+        "error",
+        error instanceof Error ? error.message : "Rang kon niet worden aangemaakt.",
+      ),
+    );
+  }
+}
+
+export async function createFormTemplateAction(formData: FormData) {
+  try {
+    const session = await requirePermission("config.forms.manage");
+    const parsed = formTemplateCreateSchema.parse({
+      code: String(formData.get("code") ?? ""),
+      label: String(formData.get("label") ?? ""),
+      description: String(formData.get("description") ?? ""),
+      reportTypeCode: String(formData.get("reportTypeCode") ?? ""),
+      isActive: checkboxToBoolean(formData.get("isActive")),
+    });
+
+    const supabase = await createSupabaseServerClient();
+    const { data: inserted, error } = await supabase
+      .from("form_templates")
+      .insert({
+        code: parsed.code,
+        label: parsed.label,
+        description: cleanOptional(parsed.description),
+        report_type_code: cleanOptional(parsed.reportTypeCode),
+        is_active: parsed.isActive,
+        is_system: false,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await writeAdminAudit(supabase, {
+      targetType: "form_template",
+      targetId: inserted?.id ?? null,
+      action: "form_template_created",
+      summary: `Formulier aangemaakt: ${parsed.label}`,
+      afterState: parsed,
+      changedFields: ["code", "label", "description", "report_type_code", "is_active"],
+      adminArea: "forms",
+      updatedBy: session.userId,
+    });
+
+    redirect(buildFeedbackUrl("/beheer", "success", "Formulier aangemaakt."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer",
+        "error",
+        error instanceof Error ? error.message : "Formulier kon niet worden aangemaakt.",
+      ),
+    );
+  }
+}
+
+export async function createFormFieldAction(formData: FormData) {
+  try {
+    const session = await requirePermission("config.forms.manage");
+    const parsed = formFieldCreateSchema.parse({
+      templateId: String(formData.get("templateId") ?? ""),
+      fieldKey: String(formData.get("fieldKey") ?? ""),
+      label: String(formData.get("label") ?? ""),
+      fieldType: String(formData.get("fieldType") ?? "text"),
+      placeholder: String(formData.get("placeholder") ?? ""),
+      helpText: String(formData.get("helpText") ?? ""),
+      options: String(formData.get("options") ?? ""),
+      isRequired: checkboxToBoolean(formData.get("isRequired")),
+      sortOrder: Number(formData.get("sortOrder") ?? 100),
+      isActive: checkboxToBoolean(formData.get("isActive")),
+    });
+
+    const optionList = parsed.options
+      ? parsed.options
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+      : [];
+
+    const supabase = await createSupabaseServerClient();
+    const { data: inserted, error } = await supabase
+      .from("form_template_fields")
+      .insert({
+        template_id: parsed.templateId,
+        field_key: parsed.fieldKey,
+        label: parsed.label,
+        field_type: parsed.fieldType,
+        placeholder: cleanOptional(parsed.placeholder),
+        help_text: cleanOptional(parsed.helpText),
+        options: optionList,
+        is_required: parsed.isRequired,
+        sort_order: parsed.sortOrder,
+        is_active: parsed.isActive,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await writeAdminAudit(supabase, {
+      targetType: "form_template_field",
+      targetId: inserted?.id ?? null,
+      action: "form_field_created",
+      summary: `Formulierveld aangemaakt: ${parsed.label}`,
+      afterState: { ...parsed, options: optionList },
+      changedFields: [
+        "template_id",
+        "field_key",
+        "label",
+        "field_type",
+        "placeholder",
+        "help_text",
+        "options",
+        "is_required",
+        "sort_order",
+        "is_active",
+      ],
+      adminArea: "forms",
+      updatedBy: session.userId,
+    });
+
+    redirect(buildFeedbackUrl("/beheer", "success", "Formulierveld aangemaakt."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer",
+        "error",
+        error instanceof Error ? error.message : "Formulierveld kon niet worden aangemaakt.",
+      ),
+    );
+  }
+}
+
+export async function requestDatabaseRestartAction() {
+  try {
+    const session = await requirePermission("config.database.restart");
+    const supabase = await createSupabaseServerClient();
+    const healthProbe = await supabase
+      .from("audit_logs")
+      .select("id", { head: true, count: "exact" });
+
+    await writeAdminAudit(supabase, {
+      targetType: "database_control",
+      action: "database_restart_requested",
+      summary: "Database herstartverzoek geregistreerd via beheerpagina.",
+      afterState: {
+        probeOk: !healthProbe.error,
+        probeMessage: healthProbe.error?.message ?? "health-check geslaagd",
+      },
+      changedFields: ["database_restart_requested"],
+      adminArea: "infrastructure",
+      updatedBy: session.userId,
+    });
+
+    redirect(
+      buildFeedbackUrl(
+        "/beheer",
+        "success",
+        "Herstartverzoek gelogd. Volledige Supabase herstart gebeurt extern; app-healthcheck is vernieuwd.",
+      ),
+    );
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer",
+        "error",
+        error instanceof Error ? error.message : "Herstartverzoek kon niet worden geregistreerd.",
+      ),
+    );
   }
 }

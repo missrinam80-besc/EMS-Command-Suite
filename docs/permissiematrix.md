@@ -22,10 +22,13 @@ Dit document volgt de **actuele runtime-permissies** in de app en vervangt de ou
 - `staff.read_sensitive`
 - `staff.update`
 - `config.panel.read`
+- `config.ranks.manage`
 - `config.report_types.manage`
+- `config.forms.manage`
 - `config.badges.manage`
 - `config.patient_statuses.manage`
 - `config.database.read`
+- `config.database.restart`
 
 ## Rollen (business)
 
@@ -76,4 +79,3 @@ Dit document volgt de **actuele runtime-permissies** in de app en vervangt de ou
 ## Specialisaties
 
 Specialisaties blijven een extra filterlaag bovenop ranks/permissies, geen vervanging ervan.
-

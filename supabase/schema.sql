@@ -187,6 +187,47 @@ create table if not exists public.warning_badges (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.form_templates (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  label text not null,
+  description text,
+  report_type_code text references public.report_types(code) on delete set null,
+  is_active boolean not null default true,
+  is_system boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.form_template_fields (
+  id uuid primary key default gen_random_uuid(),
+  template_id uuid not null references public.form_templates(id) on delete cascade,
+  field_key text not null,
+  label text not null,
+  field_type text not null check (
+    field_type in (
+      'text',
+      'textarea',
+      'number',
+      'date',
+      'datetime',
+      'select',
+      'multiselect',
+      'checkbox',
+      'radio'
+    )
+  ),
+  placeholder text,
+  help_text text,
+  options jsonb not null default '[]'::jsonb,
+  is_required boolean not null default false,
+  sort_order integer not null default 100,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (template_id, field_key)
+);
+
 create table if not exists public.patients (
   id uuid primary key default gen_random_uuid(),
   citizenid text not null unique,
@@ -335,6 +376,9 @@ create index if not exists idx_patient_cases_status on public.patient_cases(stat
 create index if not exists idx_medical_reports_patient_id on public.medical_reports(patient_id);
 create index if not exists idx_medical_reports_case_id on public.medical_reports(case_id);
 create index if not exists idx_medical_reports_type_code on public.medical_reports(report_type_code);
+create index if not exists idx_form_templates_report_type_code on public.form_templates(report_type_code);
+create index if not exists idx_form_templates_is_active on public.form_templates(is_active);
+create index if not exists idx_form_template_fields_template_id on public.form_template_fields(template_id);
 create index if not exists idx_file_attachments_target on public.file_attachments(target_type, target_id);
 create index if not exists idx_staff_evaluations_employee_profile_id on public.staff_evaluations(employee_profile_id);
 create index if not exists idx_staff_absences_profile_id on public.staff_absences(profile_id);
@@ -410,6 +454,100 @@ language sql
 stable
 as $$
   select auth.uid() = report_author_id;
+$$;
+
+create or replace function public.try_parse_uuid(input text)
+returns uuid
+language plpgsql
+immutable
+as $$
+begin
+  return input::uuid;
+exception
+  when others then
+    return null;
+end;
+$$;
+
+create or replace function public.capture_table_audit()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  actor_id uuid := auth.uid();
+  target_uuid uuid := null;
+  before_state jsonb := null;
+  after_state jsonb := null;
+  changed_fields text[] := '{}'::text[];
+  key text;
+begin
+  if TG_OP = 'INSERT' then
+    after_state := to_jsonb(NEW);
+  elsif TG_OP = 'UPDATE' then
+    before_state := to_jsonb(OLD);
+    after_state := to_jsonb(NEW);
+  elsif TG_OP = 'DELETE' then
+    before_state := to_jsonb(OLD);
+  end if;
+
+  if TG_OP = 'UPDATE' then
+    for key in
+      select distinct jsonb_object_keys(coalesce(before_state, '{}'::jsonb) || coalesce(after_state, '{}'::jsonb))
+    loop
+      if before_state -> key is distinct from after_state -> key then
+        changed_fields := array_append(changed_fields, key);
+      end if;
+    end loop;
+  elsif TG_OP = 'INSERT' then
+    changed_fields := array(
+      select jsonb_object_keys(coalesce(after_state, '{}'::jsonb))
+    );
+  else
+    changed_fields := array(
+      select jsonb_object_keys(coalesce(before_state, '{}'::jsonb))
+    );
+  end if;
+
+  if TG_OP = 'INSERT' then
+    target_uuid := public.try_parse_uuid(after_state ->> 'id');
+  else
+    target_uuid := public.try_parse_uuid(before_state ->> 'id');
+  end if;
+
+  insert into public.audit_logs (
+    actor_profile_id,
+    target_type,
+    target_id,
+    action,
+    summary,
+    before_state,
+    after_state,
+    changed_fields,
+    context
+  )
+  values (
+    actor_id,
+    TG_TABLE_NAME,
+    target_uuid,
+    lower(TG_TABLE_NAME || '_' || TG_OP),
+    TG_TABLE_NAME || ' ' || lower(TG_OP),
+    before_state,
+    after_state,
+    changed_fields,
+    jsonb_build_object(
+      'source', 'db_trigger',
+      'operation', TG_OP
+    )
+  );
+
+  if TG_OP = 'DELETE' then
+    return OLD;
+  end if;
+
+  return NEW;
+end;
 $$;
 
 create or replace function public.handle_new_user()
@@ -492,6 +630,16 @@ create trigger trg_warning_badges_updated_at
 before update on public.warning_badges
 for each row execute function public.set_updated_at();
 
+drop trigger if exists trg_form_templates_updated_at on public.form_templates;
+create trigger trg_form_templates_updated_at
+before update on public.form_templates
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_form_template_fields_updated_at on public.form_template_fields;
+create trigger trg_form_template_fields_updated_at
+before update on public.form_template_fields
+for each row execute function public.set_updated_at();
+
 drop trigger if exists trg_patients_updated_at on public.patients;
 create trigger trg_patients_updated_at
 before update on public.patients
@@ -517,6 +665,96 @@ create trigger trg_staff_absences_updated_at
 before update on public.staff_absences
 for each row execute function public.set_updated_at();
 
+drop trigger if exists trg_audit_ranks on public.ranks;
+create trigger trg_audit_ranks
+after insert or update or delete on public.ranks
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_rank_permissions on public.rank_permissions;
+create trigger trg_audit_rank_permissions
+after insert or update or delete on public.rank_permissions
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_permissions on public.permissions;
+create trigger trg_audit_permissions
+after insert or update or delete on public.permissions
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_profiles on public.profiles;
+create trigger trg_audit_profiles
+after insert or update or delete on public.profiles
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_profile_private_details on public.profile_private_details;
+create trigger trg_audit_profile_private_details
+after insert or update or delete on public.profile_private_details
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_profile_permissions on public.profile_permissions;
+create trigger trg_audit_profile_permissions
+after insert or update or delete on public.profile_permissions
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_report_types on public.report_types;
+create trigger trg_audit_report_types
+after insert or update or delete on public.report_types
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_warning_badges on public.warning_badges;
+create trigger trg_audit_warning_badges
+after insert or update or delete on public.warning_badges
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_patient_statuses on public.patient_statuses;
+create trigger trg_audit_patient_statuses
+after insert or update or delete on public.patient_statuses
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_form_templates on public.form_templates;
+create trigger trg_audit_form_templates
+after insert or update or delete on public.form_templates
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_form_template_fields on public.form_template_fields;
+create trigger trg_audit_form_template_fields
+after insert or update or delete on public.form_template_fields
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_patients on public.patients;
+create trigger trg_audit_patients
+after insert or update or delete on public.patients
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_patient_cases on public.patient_cases;
+create trigger trg_audit_patient_cases
+after insert or update or delete on public.patient_cases
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_medical_reports on public.medical_reports;
+create trigger trg_audit_medical_reports
+after insert or update or delete on public.medical_reports
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_staff_evaluations on public.staff_evaluations;
+create trigger trg_audit_staff_evaluations
+after insert or update or delete on public.staff_evaluations
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_staff_absences on public.staff_absences;
+create trigger trg_audit_staff_absences
+after insert or update or delete on public.staff_absences
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_staff_rewards on public.staff_rewards;
+create trigger trg_audit_staff_rewards
+after insert or update or delete on public.staff_rewards
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_staff_strikepoint_entries on public.staff_strikepoint_entries;
+create trigger trg_audit_staff_strikepoint_entries
+after insert or update or delete on public.staff_strikepoint_entries
+for each row execute function public.capture_table_audit();
+
 alter table public.ranks enable row level security;
 alter table public.permissions enable row level security;
 alter table public.rank_permissions enable row level security;
@@ -529,6 +767,8 @@ alter table public.profile_specializations enable row level security;
 alter table public.patient_statuses enable row level security;
 alter table public.report_types enable row level security;
 alter table public.warning_badges enable row level security;
+alter table public.form_templates enable row level security;
+alter table public.form_template_fields enable row level security;
 alter table public.patients enable row level security;
 alter table public.patient_badges enable row level security;
 alter table public.patient_cases enable row level security;
@@ -545,6 +785,13 @@ create policy "ranks_read_authenticated"
 on public.ranks
 for select
 using (auth.uid() is not null);
+
+drop policy if exists "ranks_manage_directie" on public.ranks;
+create policy "ranks_manage_directie"
+on public.ranks
+for all
+using (public.has_permission('config.ranks.manage'))
+with check (public.has_permission('config.ranks.manage'));
 
 drop policy if exists "permissions_manage_directie" on public.permissions;
 create policy "permissions_manage_directie"
@@ -699,6 +946,32 @@ on public.warning_badges
 for all
 using (public.has_permission('config.badges.manage'))
 with check (public.has_permission('config.badges.manage'));
+
+drop policy if exists "form_templates_read_authenticated" on public.form_templates;
+create policy "form_templates_read_authenticated"
+on public.form_templates
+for select
+using (auth.uid() is not null);
+
+drop policy if exists "form_templates_manage_directie" on public.form_templates;
+create policy "form_templates_manage_directie"
+on public.form_templates
+for all
+using (public.has_permission('config.forms.manage'))
+with check (public.has_permission('config.forms.manage'));
+
+drop policy if exists "form_template_fields_read_authenticated" on public.form_template_fields;
+create policy "form_template_fields_read_authenticated"
+on public.form_template_fields
+for select
+using (auth.uid() is not null);
+
+drop policy if exists "form_template_fields_manage_directie" on public.form_template_fields;
+create policy "form_template_fields_manage_directie"
+on public.form_template_fields
+for all
+using (public.has_permission('config.forms.manage'))
+with check (public.has_permission('config.forms.manage'));
 
 drop policy if exists "patients_read_allowed" on public.patients;
 create policy "patients_read_allowed"
