@@ -238,6 +238,20 @@ alter table public.form_template_fields
 alter table public.form_template_fields
   add column if not exists binding_column text;
 
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'form_template_fields_binding_source_check'
+  ) then
+    alter table public.form_template_fields
+      add constraint form_template_fields_binding_source_check
+      check (binding_source in ('custom', 'medical_reports', 'patients', 'patient_cases'));
+  end if;
+end
+$$;
+
 create table if not exists public.patients (
   id uuid primary key default gen_random_uuid(),
   citizenid text not null unique,
