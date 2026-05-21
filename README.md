@@ -76,5 +76,6 @@ Dan werkt `/login` met een lokale demosessie en voorbeelddata.
 - [Technisch ontwerp](./docs/technisch-ontwerp.md)
 - [Permissiematrix](./docs/permissiematrix.md)
 - [Backlog v1](./docs/backlog-v1.md)
+- [Delivery workflow](./docs/delivery-workflow.md)
 - [Supabase schema](./supabase/schema.sql)
 - [Supabase seed](./supabase/seed.sql)
