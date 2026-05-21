@@ -1,4 +1,4 @@
-# Backlog v1
+﻿# Backlog v1
 
 ## Fase 1: platformfundering (afgerond)
 
@@ -8,44 +8,44 @@
 - [x] ranks, permissions en specialisaties modelleren
 - [x] middleware en protected routes opzetten
 
-## Fase 2: zorgkern
+## Fase 2: zorgkern (afgerond)
 
-- patiëntenlijst
-- patiëntdetail
-- casusoverzicht
-- traumaformulier
-- opnameformulier
-- behandelingsregistratie
-- medicatieregistratie
-- kostencalculator
+- [x] patientenlijst
+- [x] patientdetail
+- [x] casusoverzicht
+- [x] traumaformulier
+- [x] opnameformulier
+- [x] behandelingsregistratie
+- [x] medicatieregistratie
+- [x] kostencalculator
 
-## Fase 3: personeel
+## Fase 3: personeel (afgerond)
 
-- personeelslijst
-- profielbeheer medewerker
-- evaluatieformulier
-- evaluatiehistoriek
-- specialisatietoewijzing
-- afwezigheidsaanvraag
-- afwezigheidsgoedkeuring
+- [x] personeelslijst
+- [x] profielbeheer medewerker
+- [x] evaluatieformulier
+- [x] evaluatiehistoriek
+- [x] specialisatietoewijzing
+- [x] afwezigheidsaanvraag
+- [x] afwezigheidsgoedkeuring
 
-## Fase 4: organisatie
+## Fase 4: organisatie (afgerond)
 
-- meetingaanvraag
-- meetings beheren
-- notulen editor
-- actiepunten en follow-up
+- [x] meetingaanvraag
+- [x] meetings beheren
+- [x] notulen editor
+- [x] actiepunten en follow-up
 
 ## Fase 5: handboek
 
-- richtlijnencategorieën
-- rich text richtlijnpagina's
-- publicatiestatus draft/published/archived
-- zichtbaarheid per rank of specialisatie
+- [ ] richtlijnencategorieen
+- [ ] rich text richtlijnpaginas
+- [ ] publicatiestatus draft/published/archived
+- [ ] zichtbaarheid per rank of specialisatie
 
 ## Fase 6: governance
 
-- audit logging
-- admin-overzicht permissies
-- seed scripts voor basisdata
-- export- en rapportagepaden
+- [ ] audit logging
+- [ ] admin-overzicht permissies
+- [ ] seed scripts voor basisdata
+- [ ] export- en rapportagepaden

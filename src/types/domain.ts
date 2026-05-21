@@ -89,6 +89,53 @@ export type StaffStrikepointEntry = {
   resolvedReason?: string | null;
 };
 
+export type MeetingStatus =
+  | "aangevraagd"
+  | "goedgekeurd"
+  | "gepland"
+  | "afgerond"
+  | "geannuleerd"
+  | "geweigerd";
+
+export type MeetingActionStatus =
+  | "open"
+  | "in_uitvoering"
+  | "geblokkeerd"
+  | "afgerond";
+
+export type Meeting = {
+  id: string;
+  title: string;
+  purpose?: string | null;
+  location?: string | null;
+  requestedDate?: string | null;
+  participantProfileIds: string[];
+  status: MeetingStatus;
+  requestedBy?: string | null;
+  decidedBy?: string | null;
+  decisionNote?: string | null;
+  scheduledStart?: string | null;
+  scheduledEnd?: string | null;
+  minutes?: string | null;
+  followUp?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+};
+
+export type MeetingActionItem = {
+  id: string;
+  meetingId: string;
+  title: string;
+  description?: string | null;
+  ownerProfileId?: string | null;
+  dueDate?: string | null;
+  status: MeetingActionStatus;
+  createdBy?: string | null;
+  completedAt?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+};
+
 export type Patient = {
   id: string;
   citizenId: string;
@@ -127,6 +174,27 @@ export type PatientCase = {
   status: "open" | "afgesloten" | "gearchiveerd" | "in_onderzoek" | "in_wacht";
   openedAt: string;
   closedAt?: string | null;
+};
+
+export type PatientTreatmentEntryType = "behandeling" | "medicatie";
+
+export type PatientTreatmentEntry = {
+  id: string;
+  patientId: string;
+  caseId?: string | null;
+  entryType: PatientTreatmentEntryType;
+  title: string;
+  description?: string | null;
+  dosage?: string | null;
+  quantity: number;
+  unitCost: number;
+  totalCost: number;
+  currency: string;
+  isBillable: boolean;
+  performedAt: string;
+  performedBy?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
 };
 
 export type MedicalReportType =
@@ -184,7 +252,9 @@ export type PatientAuditLog = {
     | "case_created"
     | "case_updated"
     | "report_created"
-    | "report_updated";
+    | "report_updated"
+    | "treatment_entry_created"
+    | "treatment_entry_deleted";
   actorProfileId: string;
   actorName?: string | null;
   summary: string;

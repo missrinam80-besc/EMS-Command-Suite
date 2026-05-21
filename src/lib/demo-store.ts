@@ -1,4 +1,6 @@
 import {
+  mockMeetingActionItems,
+  mockMeetings,
   mockCases,
   mockPatientAuditLogs,
   mockPatients,
@@ -11,6 +13,8 @@ import {
 } from "@/lib/mock-data";
 import type {
   MedicalReport,
+  Meeting,
+  MeetingActionItem,
   Patient,
   PatientAuditLog,
   PatientCase,
@@ -31,6 +35,8 @@ type DemoStore = {
   staffAbsences: StaffAbsence[];
   staffRewards: StaffReward[];
   staffStrikepointEntries: StaffStrikepointEntry[];
+  meetings: Meeting[];
+  meetingActionItems: MeetingActionItem[];
 };
 
 const globalStore = globalThis as typeof globalThis & {
@@ -48,6 +54,8 @@ function createStore(): DemoStore {
     staffAbsences: structuredClone(mockStaffAbsences),
     staffRewards: structuredClone(mockStaffRewards),
     staffStrikepointEntries: structuredClone(mockStaffStrikepointEntries),
+    meetings: structuredClone(mockMeetings),
+    meetingActionItems: structuredClone(mockMeetingActionItems),
   };
 }
 
@@ -152,6 +160,14 @@ function getStore(): DemoStore {
     );
   }
 
+  if (!globalStore.__EMS_DEMO_STORE__.meetings) {
+    globalStore.__EMS_DEMO_STORE__.meetings = structuredClone(mockMeetings);
+  }
+
+  if (!globalStore.__EMS_DEMO_STORE__.meetingActionItems) {
+    globalStore.__EMS_DEMO_STORE__.meetingActionItems = structuredClone(mockMeetingActionItems);
+  }
+
   return globalStore.__EMS_DEMO_STORE__;
 }
 
@@ -189,6 +205,14 @@ export function getDemoStaffRewards() {
 
 export function getDemoStaffStrikepointEntries() {
   return getStore().staffStrikepointEntries;
+}
+
+export function getDemoMeetings() {
+  return getStore().meetings;
+}
+
+export function getDemoMeetingActionItems() {
+  return getStore().meetingActionItems;
 }
 
 export function addDemoPatient(patient: Patient) {
@@ -245,6 +269,14 @@ export function addDemoStaffStrikepointEntry(entry: StaffStrikepointEntry) {
   getStore().staffStrikepointEntries.unshift(entry);
 }
 
+export function addDemoMeeting(meeting: Meeting) {
+  getStore().meetings.unshift(meeting);
+}
+
+export function addDemoMeetingActionItem(actionItem: MeetingActionItem) {
+  getStore().meetingActionItems.unshift(actionItem);
+}
+
 export function updateDemoStaffProfile(profileId: string, updates: Partial<StaffProfile>) {
   const profile = getStore().staffProfiles.find((item) => item.id === profileId);
   if (!profile) return;
@@ -281,6 +313,23 @@ export function updateDemoStaffReward(rewardId: string, updates: Partial<StaffRe
   if (!reward) return;
 
   Object.assign(reward, updates);
+}
+
+export function updateDemoMeeting(meetingId: string, updates: Partial<Meeting>) {
+  const meeting = getStore().meetings.find((item) => item.id === meetingId);
+  if (!meeting) return;
+
+  Object.assign(meeting, updates);
+}
+
+export function updateDemoMeetingActionItem(
+  actionItemId: string,
+  updates: Partial<MeetingActionItem>,
+) {
+  const actionItem = getStore().meetingActionItems.find((item) => item.id === actionItemId);
+  if (!actionItem) return;
+
+  Object.assign(actionItem, updates);
 }
 
 export function removeDemoStaffSpecialization(profileId: string, specializationId: string) {

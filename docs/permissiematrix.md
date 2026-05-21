@@ -1,6 +1,6 @@
-# Permissiematrix (live v1)
+﻿# Permissiematrix (live v1)
 
-Dit document volgt de **actuele runtime-permissies** in de app en vervangt de oudere capability-benamingen zoals `patients.write`, `staff.read` en `admin.manage_permissions`.
+Dit document volgt de actuele runtime-permissies in de app en vervangt oudere capability-benamingen zoals `patients.write`, `staff.read` en `admin.manage_permissions`.
 
 ## Live permission-codes
 
@@ -17,6 +17,11 @@ Dit document volgt de **actuele runtime-permissies** in de app en vervangt de ou
 - `reports.create`
 - `reports.update`
 - `reports.update_own`
+- `meetings.read`
+- `meetings.create`
+- `meetings.update`
+- `minutes.read`
+- `minutes.update`
 - `audit.read`
 - `staff.read_basic`
 - `staff.read_sensitive`
@@ -49,13 +54,13 @@ Dit document volgt de **actuele runtime-permissies** in de app en vervangt de ou
 
 ### Rank 2 (operationele leiding)
 
-- brede operationele toegang tot zorg en personeel
-- **geen** toegang tot beheer/config/databasebeheer
+- brede operationele toegang tot zorg, personeel en organisatie
+- geen toegang tot beheer/config/databasebeheer
 
 ### Rank 3-4 (specialist/senior)
 
-- volledige zorgwerking (patiënten, cases, rapporten)
-- personeel volgens toegekende rechten
+- volledige zorgwerking (patienten, cases, rapporten)
+- personeel en organisatie volgens toegekende rechten
 
 ### Rank 5-6 (EMS/Trainee)
 
@@ -64,8 +69,9 @@ Dit document volgt de **actuele runtime-permissies** in de app en vervangt de ou
 
 ## Moduletoegang (centrale guards)
 
-- `/zorg`: vereist minstens één van `patients.read`, `cases.read`, `reports.read`
+- `/zorg`: vereist minstens een van `patients.read`, `cases.read`, `reports.read`
 - `/personeel`: vereist `staff.read_basic`
+- `/organisatie`: vereist minstens een van `meetings.read`, `minutes.read`
 - `/beheer`: vereist `config.panel.read`
 
 ## Belangrijke enforcement-notes
@@ -74,7 +80,7 @@ Dit document volgt de **actuele runtime-permissies** in de app en vervangt de ou
 - `reports.update_own` laat alleen bewerken toe van rapporten waarvan `author_profile_id` gelijk is aan de ingelogde gebruiker.
 - Rechten worden geladen uit Supabase via:
   - directe rechten: `profile_permissions`
-  - geërfde rechten: `rank_permissions`
+  - geerfde rechten: `rank_permissions`
 
 ## Specialisaties
 

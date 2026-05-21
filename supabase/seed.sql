@@ -38,6 +38,11 @@ values
   ('reports.create', 'Rapporten aanmaken', 'Nieuwe rapporten aanmaken.'),
   ('reports.update', 'Rapporten bewerken', 'Alle rapporten bewerken.'),
   ('reports.update_own', 'Eigen rapporten bewerken', 'Alleen eigen rapporten bewerken.'),
+  ('meetings.read', 'Meetings bekijken', 'Meetingaanvragen en planning bekijken.'),
+  ('meetings.create', 'Meetings aanvragen', 'Nieuwe meetingaanvragen registreren.'),
+  ('meetings.update', 'Meetings beheren', 'Planning, status en actiepunten beheren.'),
+  ('minutes.read', 'Notulen bekijken', 'Notulen en follow-up van meetings bekijken.'),
+  ('minutes.update', 'Notulen bewerken', 'Notulen en follow-up aanpassen.'),
   ('audit.read', 'Auditlog bekijken', 'Centrale auditlog bekijken.'),
   ('staff.read_basic', 'Basis personeelslijst bekijken', 'Niet-gevoelige personeelslijst bekijken.'),
   ('staff.read_sensitive', 'Gevoelig personeel bekijken', 'Volledige personeelsdossiers en HR-data bekijken.'),
@@ -144,6 +149,11 @@ with rank_permission_matrix as (
     'reports.read',
     'reports.create',
     'reports.update',
+    'meetings.read',
+    'meetings.create',
+    'meetings.update',
+    'minutes.read',
+    'minutes.update',
     'audit.read',
     'staff.read_basic',
     'staff.read_sensitive',
@@ -170,6 +180,11 @@ with rank_permission_matrix as (
     'reports.read',
     'reports.create',
     'reports.update',
+    'meetings.read',
+    'meetings.create',
+    'meetings.update',
+    'minutes.read',
+    'minutes.update',
     'audit.read',
     'staff.read_basic',
     'staff.read_sensitive',
@@ -187,6 +202,10 @@ with rank_permission_matrix as (
     'reports.read',
     'reports.create',
     'reports.update',
+    'meetings.read',
+    'meetings.create',
+    'minutes.read',
+    'minutes.update',
     'staff.read_basic',
     'staff.read_sensitive'
   ])
@@ -198,6 +217,8 @@ with rank_permission_matrix as (
     'reports.read',
     'reports.create',
     'reports.update',
+    'meetings.read',
+    'minutes.read',
     'staff.read_basic'
   ])
   union all
@@ -208,6 +229,8 @@ with rank_permission_matrix as (
     'reports.read',
     'reports.create',
     'reports.update_own',
+    'meetings.read',
+    'minutes.read',
     'staff.read_basic'
   ])
   union all
@@ -215,6 +238,8 @@ with rank_permission_matrix as (
     'patients.read',
     'reports.read',
     'reports.update_own',
+    'meetings.read',
+    'minutes.read',
     'staff.read_basic'
   ])
 )
@@ -238,6 +263,11 @@ with support_permission_matrix as (
     'reports.read',
     'reports.create',
     'reports.update',
+    'meetings.read',
+    'meetings.create',
+    'meetings.update',
+    'minutes.read',
+    'minutes.update',
     'audit.read',
     'staff.read_basic',
     'staff.read_sensitive',
@@ -256,6 +286,11 @@ with support_permission_matrix as (
     'reports.read',
     'reports.create',
     'reports.update',
+    'meetings.read',
+    'meetings.create',
+    'meetings.update',
+    'minutes.read',
+    'minutes.update',
     'audit.read',
     'staff.read_basic',
     'staff.read_sensitive',

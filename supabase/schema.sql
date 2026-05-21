@@ -47,6 +47,26 @@ begin
     );
   end if;
 
+  if not exists (select 1 from pg_type where typname = 'meeting_status') then
+    create type public.meeting_status as enum (
+      'aangevraagd',
+      'goedgekeurd',
+      'gepland',
+      'afgerond',
+      'geannuleerd',
+      'geweigerd'
+    );
+  end if;
+
+  if not exists (select 1 from pg_type where typname = 'meeting_action_status') then
+    create type public.meeting_action_status as enum (
+      'open',
+      'in_uitvoering',
+      'geblokkeerd',
+      'afgerond'
+    );
+  end if;
+
   if not exists (select 1 from pg_type where typname = 'file_target_type') then
     create type public.file_target_type as enum (
       'patient',
@@ -352,6 +372,41 @@ create table if not exists public.staff_absences (
   check (end_date >= start_date)
 );
 
+create table if not exists public.meetings (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  purpose text,
+  location text,
+  requested_date date,
+  participant_profile_ids uuid[] not null default '{}'::uuid[],
+  status public.meeting_status not null default 'aangevraagd',
+  requested_by uuid references public.profiles(id) on delete set null,
+  scheduled_start timestamptz,
+  scheduled_end timestamptz,
+  decision_note text,
+  decided_by uuid references public.profiles(id) on delete set null,
+  decided_at timestamptz,
+  minutes text,
+  follow_up text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (scheduled_end is null or scheduled_start is null or scheduled_end >= scheduled_start)
+);
+
+create table if not exists public.meeting_action_items (
+  id uuid primary key default gen_random_uuid(),
+  meeting_id uuid not null references public.meetings(id) on delete cascade,
+  title text not null,
+  description text,
+  owner_profile_id uuid references public.profiles(id) on delete set null,
+  due_date date,
+  status public.meeting_action_status not null default 'open',
+  created_by uuid references public.profiles(id) on delete set null,
+  completed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.staff_rewards (
   id uuid primary key default gen_random_uuid(),
   profile_id uuid not null references public.profiles(id) on delete cascade,
@@ -406,6 +461,12 @@ create index if not exists idx_form_template_fields_template_id on public.form_t
 create index if not exists idx_file_attachments_target on public.file_attachments(target_type, target_id);
 create index if not exists idx_staff_evaluations_employee_profile_id on public.staff_evaluations(employee_profile_id);
 create index if not exists idx_staff_absences_profile_id on public.staff_absences(profile_id);
+create index if not exists idx_meetings_status on public.meetings(status);
+create index if not exists idx_meetings_requested_by on public.meetings(requested_by);
+create index if not exists idx_meetings_scheduled_start on public.meetings(scheduled_start);
+create index if not exists idx_meeting_action_items_meeting_id on public.meeting_action_items(meeting_id);
+create index if not exists idx_meeting_action_items_owner_profile_id on public.meeting_action_items(owner_profile_id);
+create index if not exists idx_meeting_action_items_status on public.meeting_action_items(status);
 create index if not exists idx_staff_rewards_profile_id on public.staff_rewards(profile_id);
 create index if not exists idx_staff_strikepoints_profile_id on public.staff_strikepoint_entries(profile_id);
 create index if not exists idx_audit_logs_target on public.audit_logs(target_type, target_id);
@@ -689,6 +750,16 @@ create trigger trg_staff_absences_updated_at
 before update on public.staff_absences
 for each row execute function public.set_updated_at();
 
+drop trigger if exists trg_meetings_updated_at on public.meetings;
+create trigger trg_meetings_updated_at
+before update on public.meetings
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_meeting_action_items_updated_at on public.meeting_action_items;
+create trigger trg_meeting_action_items_updated_at
+before update on public.meeting_action_items
+for each row execute function public.set_updated_at();
+
 drop trigger if exists trg_audit_ranks on public.ranks;
 create trigger trg_audit_ranks
 after insert or update or delete on public.ranks
@@ -794,6 +865,16 @@ create trigger trg_audit_staff_absences
 after insert or update or delete on public.staff_absences
 for each row execute function public.capture_table_audit();
 
+drop trigger if exists trg_audit_meetings on public.meetings;
+create trigger trg_audit_meetings
+after insert or update or delete on public.meetings
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_meeting_action_items on public.meeting_action_items;
+create trigger trg_audit_meeting_action_items
+after insert or update or delete on public.meeting_action_items
+for each row execute function public.capture_table_audit();
+
 drop trigger if exists trg_audit_staff_rewards on public.staff_rewards;
 create trigger trg_audit_staff_rewards
 after insert or update or delete on public.staff_rewards
@@ -825,6 +906,8 @@ alter table public.medical_reports enable row level security;
 alter table public.file_attachments enable row level security;
 alter table public.staff_evaluations enable row level security;
 alter table public.staff_absences enable row level security;
+alter table public.meetings enable row level security;
+alter table public.meeting_action_items enable row level security;
 alter table public.staff_rewards enable row level security;
 alter table public.staff_strikepoint_entries enable row level security;
 alter table public.audit_logs enable row level security;
@@ -1179,6 +1262,64 @@ with check (
   public.has_permission('staff.update')
   or profile_id = auth.uid()
 );
+
+drop policy if exists "meetings_read_allowed" on public.meetings;
+create policy "meetings_read_allowed"
+on public.meetings
+for select
+using (
+  public.has_permission('meetings.read')
+  or public.has_permission('minutes.read')
+  or requested_by = auth.uid()
+  or auth.uid() = any(participant_profile_ids)
+);
+
+drop policy if exists "meetings_insert_allowed" on public.meetings;
+create policy "meetings_insert_allowed"
+on public.meetings
+for insert
+with check (
+  public.has_permission('meetings.create')
+  and (requested_by is null or requested_by = auth.uid())
+);
+
+drop policy if exists "meetings_update_allowed" on public.meetings;
+create policy "meetings_update_allowed"
+on public.meetings
+for update
+using (
+  public.has_permission('meetings.update')
+  or public.has_permission('minutes.update')
+)
+with check (
+  public.has_permission('meetings.update')
+  or public.has_permission('minutes.update')
+);
+
+drop policy if exists "meeting_action_items_read_allowed" on public.meeting_action_items;
+create policy "meeting_action_items_read_allowed"
+on public.meeting_action_items
+for select
+using (
+  exists (
+    select 1
+    from public.meetings m
+    where m.id = meeting_action_items.meeting_id
+      and (
+        public.has_permission('meetings.read')
+        or public.has_permission('minutes.read')
+        or m.requested_by = auth.uid()
+        or auth.uid() = any(m.participant_profile_ids)
+      )
+  )
+);
+
+drop policy if exists "meeting_action_items_manage_allowed" on public.meeting_action_items;
+create policy "meeting_action_items_manage_allowed"
+on public.meeting_action_items
+for all
+using (public.has_permission('meetings.update'))
+with check (public.has_permission('meetings.update'));
 
 drop policy if exists "staff_rewards_read_allowed" on public.staff_rewards;
 create policy "staff_rewards_read_allowed"
