@@ -1,12 +1,12 @@
 # Backlog v1
 
-## Fase 1: platformfundering
+## Fase 1: platformfundering (afgerond)
 
-- Supabase project configureren
-- auth flows opzetten
-- profielactivatie met `citizenid`
-- ranks, permissions en specialisaties modelleren
-- middleware en protected routes opzetten
+- [x] Supabase project configureren
+- [x] auth flows opzetten
+- [x] profielactivatie met `citizenid`
+- [x] ranks, permissions en specialisaties modelleren
+- [x] middleware en protected routes opzetten
 
 ## Fase 2: zorgkern
 

@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { clearDemoSession, createDemoSession } from "@/lib/auth";
+import { clearDemoSession, createDemoSession, getAppSession, PROFILE_ACTIVATION_ERROR } from "@/lib/auth";
 import { hasSupabaseEnv, isDemoAuthEnabled } from "@/lib/env";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -35,6 +35,12 @@ export async function signInAction(formData: FormData) {
 
   if (error) {
     redirect(`/login?error=${encodeURIComponent(error.message)}`);
+  }
+
+  const session = await getAppSession();
+  if (!session) {
+    await supabase.auth.signOut();
+    redirect(`/login?error=${encodeURIComponent(PROFILE_ACTIVATION_ERROR)}`);
   }
 
   redirect("/");

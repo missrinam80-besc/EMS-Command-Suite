@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireAnyPermission } from "@/lib/auth";
+import { requireReportEditAccess } from "@/lib/auth";
 import { buildFeedbackUrl } from "@/lib/feedback";
 import { updateOpnameReport } from "@/lib/reports";
 
@@ -9,7 +9,12 @@ export async function updateOpnameReportAction(formData: FormData) {
   const patientId = String(formData.get("patientId") ?? "");
   const reportId = String(formData.get("reportId") ?? "");
   try {
-    await requireAnyPermission(["reports.update", "reports.update_own"]);
+    await requireReportEditAccess({
+      patientId,
+      reportId,
+      reportType: "opname",
+      forbiddenRedirectPath: `/zorg/patienten/${patientId}/rapporten/opname/${reportId}`,
+    });
     await updateOpnameReport(reportId, {
       patientId,
       caseId: String(formData.get("caseId") ?? ""),

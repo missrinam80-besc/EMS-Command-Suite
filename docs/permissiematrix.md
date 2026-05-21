@@ -1,81 +1,79 @@
-# Permissiematrix
+# Permissiematrix (live v1)
 
-## Rollen
+Dit document volgt de **actuele runtime-permissies** in de app en vervangt de oudere capability-benamingen zoals `patients.write`, `staff.read` en `admin.manage_permissions`.
 
-- `trainee`
-- `ems`
-- `supervisor`
-- `command`
-
-## Kerncapabilities
+## Live permission-codes
 
 - `patients.read`
-- `patients.write`
+- `patients.create`
+- `patients.update`
+- `patients.soft_delete`
+- `patients.read_deleted`
 - `cases.read`
-- `cases.write`
+- `cases.create`
+- `cases.update`
+- `cases.status.update`
 - `reports.read`
-- `reports.write`
-- `treatments.read`
-- `treatments.write`
-- `staff.read`
-- `staff.write`
-- `evaluations.read`
-- `evaluations.write`
-- `absences.read`
-- `absences.write`
-- `meetings.read`
-- `meetings.write`
-- `minutes.read`
-- `minutes.write`
-- `guidelines.read`
-- `guidelines.write`
-- `admin.manage_permissions`
+- `reports.create`
+- `reports.update`
+- `reports.update_own`
+- `audit.read`
+- `staff.read_basic`
+- `staff.read_sensitive`
+- `staff.update`
+- `config.panel.read`
+- `config.report_types.manage`
+- `config.badges.manage`
+- `config.patient_statuses.manage`
+- `config.database.read`
 
-## Richtlijn per rol
+## Rollen (business)
 
-### Trainee
+- `rank_1` Medische Directie / Ziekenhuisdirectie
+- `rank_2` Operationele Leiding
+- `rank_3` Medisch Specialist / Arts
+- `rank_4` Senior EMS
+- `rank_5` EMS Personeel
+- `rank_6` Trainee
+- extra loginrollen: `administratie`, `directie_assistent`
 
-- lezen van richtlijnen
-- lezen van dossiers en rapporten waar toegang voor is gegeven
-- geen HR-beheer
-- geen meetingbeheer
+## Richtlijn per rol (v1)
 
-### EMS medewerker
+### Rank 1 (directie)
 
-- dossiers aanmaken en bewerken
-- rapporten schrijven
-- behandelingen registreren
-- geen personeelsbeheer
-- geen globale permissiebeheeracties
-
-### Supervisor
-
-- alles van EMS medewerker
-- evaluaties beheren
-- afwezigheden opvolgen
-- meetings en verslagen beheren
-- publicatie van afdelingsrichtlijnen
-
-### Command
-
+- volledige toegang tot alle modules
 - volledige beheerrechten
-- rank- en capabilitybeheer
-- volledige HR-zichtbaarheid
-- volledige organisatie- en handboekrechten
 
-## Specialisatie-afhankelijke restricties
+### Rank 2 (operationele leiding)
 
-Specialisaties worden gebruikt als extra filter, niet als vervanging van ranks.
+- brede operationele toegang tot zorg en personeel
+- **geen** toegang tot beheer/config/databasebeheer
 
-Voorbeelden:
+### Rank 3-4 (specialist/senior)
 
-- enkel specialisatie `forensisch` ziet forensische richtlijnen
-- enkel specialisatie `chirurgie` ziet chirurgische interne protocollen
-- enkel specialisatie `psychologie` ziet psychologische verslagtypes
+- volledige zorgwerking (patiënten, cases, rapporten)
+- personeel volgens toegekende rechten
 
-## Aanbevolen aanpak in database
+### Rank 5-6 (EMS/Trainee)
 
-- capabilities als losse records in `permissions`
-- koppeling `rank_permissions`
-- specialisaties via `profile_specializations`
-- optionele extra table `resource_visibility_rules` in latere fase
+- basis operationele toegang volgens toegewezen rechten
+- rapportbewerking beperkt via `reports.update_own` (enforced op pagina + server action)
+
+## Moduletoegang (centrale guards)
+
+- `/zorg`: vereist minstens één van `patients.read`, `cases.read`, `reports.read`
+- `/personeel`: vereist `staff.read_basic`
+- `/beheer`: vereist `config.panel.read`
+
+## Belangrijke enforcement-notes
+
+- Detailacties blijven aanvullend beschermd met pagina/action-specifieke checks.
+- `reports.update_own` laat alleen bewerken toe van rapporten waarvan `author_profile_id` gelijk is aan de ingelogde gebruiker.
+- Rechten worden geladen uit Supabase via:
+  - directe rechten: `profile_permissions`
+  - geërfde rechten: `rank_permissions`
+
+## Specialisaties
+
+Specialisaties blijven een extra filterlaag bovenop ranks/permissies, geen vervanging ervan.
+

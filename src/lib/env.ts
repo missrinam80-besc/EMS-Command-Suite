@@ -10,7 +10,11 @@ export function isHostedRuntime() {
 }
 
 export function shouldUseDemoData() {
-  return !isHostedRuntime() && process.env.NEXT_PUBLIC_ENABLE_DEMO_AUTH === "true";
+  return (
+    process.env.NODE_ENV !== "production" &&
+    !isHostedRuntime() &&
+    process.env.NEXT_PUBLIC_ENABLE_DEMO_AUTH === "true"
+  );
 }
 
 export function isDemoAuthEnabled() {

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FeedbackBanner } from "@/components/feedback-banner";
-import { requireAnyPermission } from "@/lib/auth";
+import { requireReportEditAccess } from "@/lib/auth";
 import { readFeedback } from "@/lib/feedback";
 import { getPatientDetail } from "@/lib/patients";
 import { getReportAuthorLabel, getReportById } from "@/lib/reports";
@@ -17,9 +17,13 @@ export default async function EditOpnameReportPage({
   params,
   searchParams,
 }: EditOpnameReportPageProps) {
-  await requireAnyPermission(["reports.update", "reports.update_own"]);
-
   const { patientId, reportId } = await params;
+  await requireReportEditAccess({
+    patientId,
+    reportId,
+    reportType: "opname",
+    forbiddenRedirectPath: `/zorg/patienten/${patientId}/rapporten/opname/${reportId}`,
+  });
   const feedback = readFeedback(await searchParams);
   const [patient, report] = await Promise.all([
     getPatientDetail(patientId),

@@ -43,6 +43,16 @@ export type AppSession = {
 };
 
 const DEMO_COOKIE = "ems_demo_auth";
+export const PROFILE_ACTIVATION_ERROR =
+  "Je profiel is nog niet geactiveerd. Contacteer de directie of administratie.";
+
+function isActivatedCitizenId(citizenId: string) {
+  const normalized = citizenId.trim().toLowerCase();
+  if (!normalized) return false;
+  if (normalized === "onbekend") return false;
+  if (normalized.startsWith("pending-")) return false;
+  return true;
+}
 
 export async function getAppSession(): Promise<AppSession | null> {
   const cookieStore = await cookies();
@@ -138,6 +148,15 @@ export async function getAppSession(): Promise<AppSession | null> {
     }
   }
 
+  const resolvedCitizenId =
+    privateDetails?.citizenid ?? (user.user_metadata.citizenid as string | undefined) ?? "";
+  const hasActivatedProfile = Boolean(
+    profileRecord?.full_name && isActivatedCitizenId(resolvedCitizenId),
+  );
+  if (!hasActivatedProfile) {
+    return null;
+  }
+
   return {
     mode: "supabase",
     userId: user.id,
@@ -146,7 +165,7 @@ export async function getAppSession(): Promise<AppSession | null> {
       profileRecord?.full_name ??
       (user.user_metadata.full_name as string | undefined) ??
       "EMS gebruiker",
-    citizenId: privateDetails?.citizenid ?? (user.user_metadata.citizenid as string | undefined) ?? "onbekend",
+    citizenId: resolvedCitizenId,
     rankLabel: rankRecord?.name ?? (user.user_metadata.rank_label as string | undefined) ?? "EMS",
     rankCode: rankRecord?.code ?? null,
     profileType: profileRecord?.profile_type ?? "medical_staff",
@@ -185,6 +204,33 @@ export async function requireAnyPermission(permissions: AppPermission[]) {
   if (!hasAnyPermission(session, permissions)) {
     redirect("/");
   }
+  return session;
+}
+
+export async function requireReportEditAccess(params: {
+  patientId: string;
+  reportId: string;
+  reportType: "trauma" | "opname";
+  forbiddenRedirectPath: string;
+}) {
+  const session = await requireAnyPermission(["reports.update", "reports.update_own"]);
+  if (hasPermission(session, "reports.update")) {
+    return session;
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: report, error } = await supabase
+    .from("medical_reports")
+    .select("author_profile_id")
+    .eq("id", params.reportId)
+    .eq("patient_id", params.patientId)
+    .eq("report_type_code", params.reportType)
+    .single();
+
+  if (error || !report || report.author_profile_id !== session.userId) {
+    redirect(params.forbiddenRedirectPath);
+  }
+
   return session;
 }
 
