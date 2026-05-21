@@ -219,6 +219,10 @@ create table if not exists public.form_template_fields (
   ),
   placeholder text,
   help_text text,
+  binding_source text not null default 'custom' check (
+    binding_source in ('custom', 'medical_reports', 'patients', 'patient_cases')
+  ),
+  binding_column text,
   options jsonb not null default '[]'::jsonb,
   is_required boolean not null default false,
   sort_order integer not null default 100,
@@ -227,6 +231,12 @@ create table if not exists public.form_template_fields (
   updated_at timestamptz not null default now(),
   unique (template_id, field_key)
 );
+
+alter table public.form_template_fields
+  add column if not exists binding_source text not null default 'custom';
+
+alter table public.form_template_fields
+  add column if not exists binding_column text;
 
 create table if not exists public.patients (
   id uuid primary key default gen_random_uuid(),
@@ -675,6 +685,16 @@ create trigger trg_audit_rank_permissions
 after insert or update or delete on public.rank_permissions
 for each row execute function public.capture_table_audit();
 
+drop trigger if exists trg_audit_specializations on public.specializations;
+create trigger trg_audit_specializations
+after insert or update or delete on public.specializations
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_specialization_permissions on public.specialization_permissions;
+create trigger trg_audit_specialization_permissions
+after insert or update or delete on public.specialization_permissions
+for each row execute function public.capture_table_audit();
+
 drop trigger if exists trg_audit_permissions on public.permissions;
 create trigger trg_audit_permissions
 after insert or update or delete on public.permissions
@@ -693,6 +713,11 @@ for each row execute function public.capture_table_audit();
 drop trigger if exists trg_audit_profile_permissions on public.profile_permissions;
 create trigger trg_audit_profile_permissions
 after insert or update or delete on public.profile_permissions
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_profile_specializations on public.profile_specializations;
+create trigger trg_audit_profile_specializations
+after insert or update or delete on public.profile_specializations
 for each row execute function public.capture_table_audit();
 
 drop trigger if exists trg_audit_report_types on public.report_types;
@@ -730,9 +755,19 @@ create trigger trg_audit_patient_cases
 after insert or update or delete on public.patient_cases
 for each row execute function public.capture_table_audit();
 
+drop trigger if exists trg_audit_patient_badges on public.patient_badges;
+create trigger trg_audit_patient_badges
+after insert or update or delete on public.patient_badges
+for each row execute function public.capture_table_audit();
+
 drop trigger if exists trg_audit_medical_reports on public.medical_reports;
 create trigger trg_audit_medical_reports
 after insert or update or delete on public.medical_reports
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_file_attachments on public.file_attachments;
+create trigger trg_audit_file_attachments
+after insert or update or delete on public.file_attachments
 for each row execute function public.capture_table_audit();
 
 drop trigger if exists trg_audit_staff_evaluations on public.staff_evaluations;

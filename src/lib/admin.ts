@@ -85,6 +85,8 @@ export type ManagedFormField = {
     | "radio";
   placeholder: string | null;
   helpText: string | null;
+  bindingSource: "custom" | "medical_reports" | "patients" | "patient_cases";
+  bindingColumn: string | null;
   options: string[];
   isRequired: boolean;
   sortOrder: number;
@@ -415,7 +417,7 @@ export async function getManagedFormFields(): Promise<ManagedFormField[]> {
   const { data, error } = await supabase
     .from("form_template_fields")
     .select(
-      "id, template_id, field_key, label, field_type, placeholder, help_text, options, is_required, sort_order, is_active",
+      "id, template_id, field_key, label, field_type, placeholder, help_text, binding_source, binding_column, options, is_required, sort_order, is_active",
     )
     .order("sort_order", { ascending: true });
 
@@ -431,6 +433,8 @@ export async function getManagedFormFields(): Promise<ManagedFormField[]> {
     fieldType: field.field_type as ManagedFormField["fieldType"],
     placeholder: field.placeholder,
     helpText: field.help_text,
+    bindingSource: (field.binding_source ?? "custom") as ManagedFormField["bindingSource"],
+    bindingColumn: field.binding_column ?? null,
     options: Array.isArray(field.options)
       ? field.options.filter((entry): entry is string => typeof entry === "string")
       : [],

@@ -4,15 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   createPatientStatusAction,
-  createReportTypeAction,
   createWarningBadgeAction,
   updatePatientStatusAction,
-  updateReportTypeAction,
   updateWarningBadgeAction,
 } from "@/app/(protected)/beheer/actions";
 import type { ManagedCatalogItem } from "@/lib/admin";
 
-type CatalogKind = "report-types" | "warning-badges" | "patient-statuses";
+type CatalogKind = "warning-badges" | "patient-statuses";
 type ModalKey =
   | null
   | `create:${CatalogKind}`
@@ -27,7 +25,6 @@ type CatalogDescriptor = {
 };
 
 type AdminConfigCatalogsProps = {
-  reportTypes: ManagedCatalogItem[];
   warningBadges: ManagedCatalogItem[];
   patientStatuses: ManagedCatalogItem[];
 };
@@ -78,8 +75,6 @@ function ModalShell({
 
 function getCreateAction(kind: CatalogKind) {
   switch (kind) {
-    case "report-types":
-      return createReportTypeAction;
     case "warning-badges":
       return createWarningBadgeAction;
     case "patient-statuses":
@@ -89,8 +84,6 @@ function getCreateAction(kind: CatalogKind) {
 
 function getUpdateAction(kind: CatalogKind) {
   switch (kind) {
-    case "report-types":
-      return updateReportTypeAction;
     case "warning-badges":
       return updateWarningBadgeAction;
     case "patient-statuses":
@@ -99,14 +92,10 @@ function getUpdateAction(kind: CatalogKind) {
 }
 
 function itemDescription(kind: CatalogKind, item: ManagedCatalogItem) {
-  if (kind === "report-types") {
-    return item.description || "Geen extra beschrijving ingesteld.";
-  }
   return item.colorHex || "Geen kleur ingesteld.";
 }
 
 export function AdminConfigCatalogs({
-  reportTypes,
   warningBadges,
   patientStatuses,
 }: AdminConfigCatalogsProps) {
@@ -128,12 +117,6 @@ export function AdminConfigCatalogs({
   const catalogs = useMemo<CatalogDescriptor[]>(
     () => [
       {
-        kind: "report-types",
-        title: "Rapporttypen",
-        subtitle: "Beheer medische formuliertypen en hun zichtbaarheid.",
-        items: reportTypes,
-      },
-      {
         kind: "warning-badges",
         title: "Tags en badges",
         subtitle: "Beheer waarschuwingsbadges voor medische dossiers.",
@@ -146,7 +129,7 @@ export function AdminConfigCatalogs({
         items: patientStatuses,
       },
     ],
-    [patientStatuses, reportTypes, warningBadges],
+    [patientStatuses, warningBadges],
   );
 
   const modalParts = openModal?.split(":");
@@ -251,16 +234,6 @@ export function AdminConfigCatalogs({
                 />
               </label>
             </div>
-            {selectedCatalog.kind === "report-types" ? (
-              <label className="grid gap-2 text-sm text-[var(--color-muted)]">
-                Beschrijving
-                <textarea
-                  name="description"
-                  rows={3}
-                  className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-ink)]"
-                />
-              </label>
-            ) : null}
             <div className="grid gap-4 md:grid-cols-[1fr_120px_auto] md:items-end">
               <label className="grid gap-2 text-sm text-[var(--color-muted)]">
                 Kleur
@@ -368,17 +341,6 @@ export function AdminConfigCatalogs({
                 className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-ink)]"
               />
             </label>
-            {selectedCatalog.kind === "report-types" ? (
-              <label className="grid gap-2 text-sm text-[var(--color-muted)]">
-                Beschrijving
-                <textarea
-                  name="description"
-                  rows={3}
-                  defaultValue={selectedItem.description ?? ""}
-                  className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-ink)]"
-                />
-              </label>
-            ) : null}
             <div className="grid gap-4 md:grid-cols-[1fr_120px_auto] md:items-end">
               <label className="grid gap-2 text-sm text-[var(--color-muted)]">
                 Kleur

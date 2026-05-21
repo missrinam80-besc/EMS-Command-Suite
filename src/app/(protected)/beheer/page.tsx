@@ -1,21 +1,16 @@
 import { FeedbackBanner } from "@/components/feedback-banner";
+import Link from "next/link";
 import { AdminAuditLogBoard } from "@/components/admin-audit-log-board";
 import { AdminUserManagement } from "@/components/admin-user-management";
 import { AdminRankGroups } from "@/components/admin-rank-groups";
 import { AdminConfigCatalogs } from "@/components/admin-config-catalogs";
-import { AdminFormTemplates } from "@/components/admin-form-templates";
 import { AdminInfrastructureBoard } from "@/components/admin-infrastructure-board";
 import { requirePermission } from "@/lib/auth";
-import {
-} from "@/app/(protected)/beheer/actions";
 import {
   getAdminAuditLogs,
   getInfrastructureHealth,
   getManagedPatientStatuses,
-  getManagedFormFields,
-  getManagedFormTemplates,
   getManagedRanks,
-  getManagedReportTypes,
   getManagedUsers,
   getManagedWarningBadges,
   getPermissionCatalog,
@@ -37,11 +32,8 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
     ranks,
     permissions,
     rankGroups,
-    reportTypes,
     warningBadges,
     patientStatuses,
-    formTemplates,
-    formFields,
     logs,
   ] = await Promise.all([
     getInfrastructureHealth(),
@@ -49,11 +41,8 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
     getManagedRanks(),
     getPermissionCatalog(),
     getRankPermissionGroups(),
-    getManagedReportTypes(),
     getManagedWarningBadges(),
     getManagedPatientStatuses(),
-    getManagedFormTemplates(),
-    getManagedFormFields(),
     getAdminAuditLogs(),
   ]);
 
@@ -110,6 +99,26 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
 
       <AdminInfrastructureBoard health={health} />
 
+      <section className="rounded-[1.5rem] border border-[var(--color-line)] bg-[var(--color-surface)] p-6">
+        <p className="text-sm uppercase tracking-[0.16em] text-[var(--color-muted)]">
+          Geavanceerd beheer
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold text-[var(--color-ink)]">
+          Rapporten en formulieren
+        </h2>
+        <p className="mt-2 text-sm text-[var(--color-muted)]">
+          Gebruik de builderpagina om rapporttypen en formuliertypen samen te beheren met velden.
+        </p>
+        <div className="mt-4">
+          <Link
+            href="/beheer/rapporten-formulieren"
+            className="inline-flex rounded-full bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:brightness-105"
+          >
+            Open rapporten & formulieren builder
+          </Link>
+        </div>
+      </section>
+
       <AdminUserManagement
         users={users}
         permissions={permissions}
@@ -118,14 +127,8 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
       />
       <AdminRankGroups ranks={ranks} rankGroups={rankGroups} permissions={permissions} />
       <AdminConfigCatalogs
-        reportTypes={reportTypes}
         warningBadges={warningBadges}
         patientStatuses={patientStatuses}
-      />
-      <AdminFormTemplates
-        templates={formTemplates}
-        fields={formFields}
-        reportTypes={reportTypes}
       />
 
       <section className="w-full">

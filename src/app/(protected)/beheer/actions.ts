@@ -99,6 +99,14 @@ const formTemplateCreateSchema = z.object({
   isActive: z.boolean().default(true),
 });
 
+const formTemplateUpdateSchema = z.object({
+  id: z.string().trim().min(1, "Formulier ontbreekt."),
+  label: z.string().trim().min(2, "Label is verplicht."),
+  description: z.string().trim().optional(),
+  reportTypeCode: z.string().trim().optional(),
+  isActive: z.boolean().default(true),
+});
+
 const formFieldCreateSchema = z.object({
   templateId: z.string().trim().min(1, "Formulier ontbreekt."),
   fieldKey: z.string().trim().min(2, "Field key is verplicht."),
@@ -116,6 +124,32 @@ const formFieldCreateSchema = z.object({
   ]),
   placeholder: z.string().trim().optional(),
   helpText: z.string().trim().optional(),
+  bindingSource: z.enum(["custom", "medical_reports", "patients", "patient_cases"]).default("custom"),
+  bindingColumn: z.string().trim().optional(),
+  options: z.string().trim().optional(),
+  isRequired: z.boolean().default(false),
+  sortOrder: z.coerce.number().int().min(0).default(100),
+  isActive: z.boolean().default(true),
+});
+
+const formFieldUpdateSchema = z.object({
+  id: z.string().trim().min(1, "Veld ontbreekt."),
+  label: z.string().trim().min(2, "Label is verplicht."),
+  fieldType: z.enum([
+    "text",
+    "textarea",
+    "number",
+    "date",
+    "datetime",
+    "select",
+    "multiselect",
+    "checkbox",
+    "radio",
+  ]),
+  placeholder: z.string().trim().optional(),
+  helpText: z.string().trim().optional(),
+  bindingSource: z.enum(["custom", "medical_reports", "patients", "patient_cases"]).default("custom"),
+  bindingColumn: z.string().trim().optional(),
   options: z.string().trim().optional(),
   isRequired: z.boolean().default(false),
   sortOrder: z.coerce.number().int().min(0).default(100),
@@ -150,6 +184,13 @@ async function waitForProfileRow(
 function cleanOptional(value?: string) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function parseOptionsList(raw?: string) {
+  return String(raw ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 async function writeAdminAudit(
@@ -637,11 +678,11 @@ export async function createReportTypeAction(formData: FormData) {
       updatedBy: session.userId,
     });
 
-    redirect(buildFeedbackUrl("/beheer", "success", "Rapporttype aangemaakt."));
+    redirect(buildFeedbackUrl("/beheer/rapporten-formulieren", "success", "Rapporttype aangemaakt."));
   } catch (error) {
     redirect(
       buildFeedbackUrl(
-        "/beheer",
+        "/beheer/rapporten-formulieren",
         "error",
         error instanceof Error ? error.message : "Rapporttype kon niet worden aangemaakt.",
       ),
@@ -694,13 +735,62 @@ export async function updateReportTypeAction(formData: FormData) {
       updatedBy: session.userId,
     });
 
-    redirect(buildFeedbackUrl("/beheer", "success", "Rapporttype bijgewerkt."));
+    redirect(buildFeedbackUrl("/beheer/rapporten-formulieren", "success", "Rapporttype bijgewerkt."));
   } catch (error) {
     redirect(
       buildFeedbackUrl(
-        "/beheer",
+        "/beheer/rapporten-formulieren",
         "error",
         error instanceof Error ? error.message : "Rapporttype kon niet worden bijgewerkt.",
+      ),
+    );
+  }
+}
+
+export async function deleteReportTypeAction(formData: FormData) {
+  try {
+    const session = await requirePermission("config.report_types.manage");
+    const reportTypeId = String(formData.get("id") ?? "");
+    if (!reportTypeId) throw new Error("Rapporttype ontbreekt.");
+
+    const supabase = await createSupabaseServerClient();
+    const { data: current } = await supabase
+      .from("report_types")
+      .select("id, label, is_system")
+      .eq("id", reportTypeId)
+      .single();
+
+    if (!current) {
+      throw new Error("Rapporttype niet gevonden.");
+    }
+
+    if (current.is_system) {
+      throw new Error("Systeemrapporttypes kunnen niet verwijderd worden.");
+    }
+
+    const { error } = await supabase.from("report_types").delete().eq("id", reportTypeId);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await writeAdminAudit(supabase, {
+      targetType: "report_type",
+      targetId: reportTypeId,
+      action: "report_type_deleted",
+      summary: `Rapporttype verwijderd: ${current.label}`,
+      beforeState: current,
+      changedFields: ["id"],
+      adminArea: "report_types",
+      updatedBy: session.userId,
+    });
+
+    redirect(buildFeedbackUrl("/beheer/rapporten-formulieren", "success", "Rapporttype verwijderd."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer/rapporten-formulieren",
+        "error",
+        error instanceof Error ? error.message : "Rapporttype kon niet worden verwijderd.",
       ),
     );
   }
@@ -1013,13 +1103,118 @@ export async function createFormTemplateAction(formData: FormData) {
       updatedBy: session.userId,
     });
 
-    redirect(buildFeedbackUrl("/beheer", "success", "Formulier aangemaakt."));
+    redirect(buildFeedbackUrl("/beheer/rapporten-formulieren", "success", "Formulier aangemaakt."));
   } catch (error) {
     redirect(
       buildFeedbackUrl(
-        "/beheer",
+        "/beheer/rapporten-formulieren",
         "error",
         error instanceof Error ? error.message : "Formulier kon niet worden aangemaakt.",
+      ),
+    );
+  }
+}
+
+export async function updateFormTemplateAction(formData: FormData) {
+  try {
+    const session = await requirePermission("config.forms.manage");
+    const parsed = formTemplateUpdateSchema.parse({
+      id: String(formData.get("id") ?? ""),
+      label: String(formData.get("label") ?? ""),
+      description: String(formData.get("description") ?? ""),
+      reportTypeCode: String(formData.get("reportTypeCode") ?? ""),
+      isActive: checkboxToBoolean(formData.get("isActive")),
+    });
+
+    const supabase = await createSupabaseServerClient();
+    const { data: current } = await supabase
+      .from("form_templates")
+      .select("id, label, description, report_type_code, is_active")
+      .eq("id", parsed.id)
+      .single();
+
+    const { error } = await supabase
+      .from("form_templates")
+      .update({
+        label: parsed.label,
+        description: cleanOptional(parsed.description),
+        report_type_code: cleanOptional(parsed.reportTypeCode),
+        is_active: parsed.isActive,
+      })
+      .eq("id", parsed.id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await writeAdminAudit(supabase, {
+      targetType: "form_template",
+      targetId: parsed.id,
+      action: "form_template_updated",
+      summary: `Formulier bijgewerkt: ${parsed.label}`,
+      beforeState: current ?? null,
+      afterState: parsed,
+      changedFields: ["label", "description", "report_type_code", "is_active"],
+      adminArea: "forms",
+      updatedBy: session.userId,
+    });
+
+    redirect(buildFeedbackUrl("/beheer/rapporten-formulieren", "success", "Formulier bijgewerkt."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer/rapporten-formulieren",
+        "error",
+        error instanceof Error ? error.message : "Formulier kon niet worden bijgewerkt.",
+      ),
+    );
+  }
+}
+
+export async function deleteFormTemplateAction(formData: FormData) {
+  try {
+    const session = await requirePermission("config.forms.manage");
+    const templateId = String(formData.get("id") ?? "");
+    if (!templateId) throw new Error("Formulier ontbreekt.");
+
+    const supabase = await createSupabaseServerClient();
+    const { data: current } = await supabase
+      .from("form_templates")
+      .select("id, label, is_system")
+      .eq("id", templateId)
+      .single();
+
+    if (!current) {
+      throw new Error("Formulier niet gevonden.");
+    }
+
+    if (current.is_system) {
+      throw new Error("Systeemformulieren kunnen niet verwijderd worden.");
+    }
+
+    const { error } = await supabase.from("form_templates").delete().eq("id", templateId);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await writeAdminAudit(supabase, {
+      targetType: "form_template",
+      targetId: templateId,
+      action: "form_template_deleted",
+      summary: `Formulier verwijderd: ${current.label}`,
+      beforeState: current,
+      changedFields: ["id"],
+      adminArea: "forms",
+      updatedBy: session.userId,
+    });
+
+    redirect(buildFeedbackUrl("/beheer/rapporten-formulieren", "success", "Formulier verwijderd."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer/rapporten-formulieren",
+        "error",
+        error instanceof Error ? error.message : "Formulier kon niet worden verwijderd.",
       ),
     );
   }
@@ -1035,18 +1230,15 @@ export async function createFormFieldAction(formData: FormData) {
       fieldType: String(formData.get("fieldType") ?? "text"),
       placeholder: String(formData.get("placeholder") ?? ""),
       helpText: String(formData.get("helpText") ?? ""),
+      bindingSource: String(formData.get("bindingSource") ?? "custom"),
+      bindingColumn: String(formData.get("bindingColumn") ?? ""),
       options: String(formData.get("options") ?? ""),
       isRequired: checkboxToBoolean(formData.get("isRequired")),
       sortOrder: Number(formData.get("sortOrder") ?? 100),
       isActive: checkboxToBoolean(formData.get("isActive")),
     });
 
-    const optionList = parsed.options
-      ? parsed.options
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .filter(Boolean)
-      : [];
+    const optionList = parseOptionsList(parsed.options);
 
     const supabase = await createSupabaseServerClient();
     const { data: inserted, error } = await supabase
@@ -1058,6 +1250,8 @@ export async function createFormFieldAction(formData: FormData) {
         field_type: parsed.fieldType,
         placeholder: cleanOptional(parsed.placeholder),
         help_text: cleanOptional(parsed.helpText),
+        binding_source: parsed.bindingSource,
+        binding_column: cleanOptional(parsed.bindingColumn),
         options: optionList,
         is_required: parsed.isRequired,
         sort_order: parsed.sortOrder,
@@ -1083,6 +1277,8 @@ export async function createFormFieldAction(formData: FormData) {
         "field_type",
         "placeholder",
         "help_text",
+        "binding_source",
+        "binding_column",
         "options",
         "is_required",
         "sort_order",
@@ -1092,11 +1288,136 @@ export async function createFormFieldAction(formData: FormData) {
       updatedBy: session.userId,
     });
 
-    redirect(buildFeedbackUrl("/beheer", "success", "Formulierveld aangemaakt."));
+    redirect(buildFeedbackUrl("/beheer/rapporten-formulieren", "success", "Formulierveld aangemaakt."));
   } catch (error) {
     redirect(
       buildFeedbackUrl(
-        "/beheer",
+        "/beheer/rapporten-formulieren",
+        "error",
+        error instanceof Error ? error.message : "Formulierveld kon niet worden aangemaakt.",
+      ),
+    );
+  }
+}
+
+export async function updateFormFieldAction(formData: FormData) {
+  try {
+    const session = await requirePermission("config.forms.manage");
+    const parsed = formFieldUpdateSchema.parse({
+      id: String(formData.get("id") ?? ""),
+      label: String(formData.get("label") ?? ""),
+      fieldType: String(formData.get("fieldType") ?? "text"),
+      placeholder: String(formData.get("placeholder") ?? ""),
+      helpText: String(formData.get("helpText") ?? ""),
+      bindingSource: String(formData.get("bindingSource") ?? "custom"),
+      bindingColumn: String(formData.get("bindingColumn") ?? ""),
+      options: String(formData.get("options") ?? ""),
+      isRequired: checkboxToBoolean(formData.get("isRequired")),
+      sortOrder: Number(formData.get("sortOrder") ?? 100),
+      isActive: checkboxToBoolean(formData.get("isActive")),
+    });
+
+    const optionList = parseOptionsList(parsed.options);
+    const supabase = await createSupabaseServerClient();
+    const { data: current } = await supabase
+      .from("form_template_fields")
+      .select("id, label, field_type, placeholder, help_text, binding_source, binding_column, options, is_required, sort_order, is_active")
+      .eq("id", parsed.id)
+      .single();
+
+    const { error } = await supabase
+      .from("form_template_fields")
+      .update({
+        label: parsed.label,
+        field_type: parsed.fieldType,
+        placeholder: cleanOptional(parsed.placeholder),
+        help_text: cleanOptional(parsed.helpText),
+        binding_source: parsed.bindingSource,
+        binding_column: cleanOptional(parsed.bindingColumn),
+        options: optionList,
+        is_required: parsed.isRequired,
+        sort_order: parsed.sortOrder,
+        is_active: parsed.isActive,
+      })
+      .eq("id", parsed.id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await writeAdminAudit(supabase, {
+      targetType: "form_template_field",
+      targetId: parsed.id,
+      action: "form_field_updated",
+      summary: `Formulierveld bijgewerkt: ${parsed.label}`,
+      beforeState: current ?? null,
+      afterState: { ...parsed, options: optionList },
+      changedFields: [
+        "label",
+        "field_type",
+        "placeholder",
+        "help_text",
+        "binding_source",
+        "binding_column",
+        "options",
+        "is_required",
+        "sort_order",
+        "is_active",
+      ],
+      adminArea: "forms",
+      updatedBy: session.userId,
+    });
+
+    redirect(buildFeedbackUrl("/beheer/rapporten-formulieren", "success", "Formulierveld bijgewerkt."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer/rapporten-formulieren",
+        "error",
+        error instanceof Error ? error.message : "Formulierveld kon niet worden bijgewerkt.",
+      ),
+    );
+  }
+}
+
+export async function deleteFormFieldAction(formData: FormData) {
+  try {
+    const session = await requirePermission("config.forms.manage");
+    const fieldId = String(formData.get("id") ?? "");
+    if (!fieldId) throw new Error("Veld ontbreekt.");
+
+    const supabase = await createSupabaseServerClient();
+    const { data: current } = await supabase
+      .from("form_template_fields")
+      .select("id, label")
+      .eq("id", fieldId)
+      .single();
+
+    if (!current) {
+      throw new Error("Veld niet gevonden.");
+    }
+
+    const { error } = await supabase.from("form_template_fields").delete().eq("id", fieldId);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await writeAdminAudit(supabase, {
+      targetType: "form_template_field",
+      targetId: fieldId,
+      action: "form_field_deleted",
+      summary: `Formulierveld verwijderd: ${current.label}`,
+      beforeState: current,
+      changedFields: ["id"],
+      adminArea: "forms",
+      updatedBy: session.userId,
+    });
+
+    redirect(buildFeedbackUrl("/beheer/rapporten-formulieren", "success", "Formulierveld verwijderd."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer/rapporten-formulieren",
         "error",
         error instanceof Error ? error.message : "Formulierveld kon niet worden aangemaakt.",
       ),
