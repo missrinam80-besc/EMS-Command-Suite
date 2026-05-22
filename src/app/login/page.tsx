@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FeedbackBanner } from "@/components/feedback-banner";
 import { getAppSession } from "@/lib/auth";
-import { isDemoAuthEnabled } from "@/lib/env";
+import { getMissingSupabaseEnvNames, isDemoAuthEnabled } from "@/lib/env";
 import { readFeedback } from "@/lib/feedback";
 import { signInAction } from "./actions";
 
@@ -20,6 +20,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const [resolvedSearchParams, session] = await Promise.all([searchParams, getAppSession()]);
   const feedback = readFeedback(resolvedSearchParams);
   const demoMode = isDemoAuthEnabled();
+  const missingSupabaseEnv = getMissingSupabaseEnvNames();
 
   return (
     <main className="mx-auto flex min-h-[calc(100vh-9rem)] w-full max-w-7xl items-center px-6 py-10 md:px-10 lg:px-12">
@@ -69,6 +70,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           {feedback ? (
             <div className="mt-6">
               <FeedbackBanner type={feedback.type} message={feedback.message} />
+            </div>
+          ) : null}
+          {!demoMode && missingSupabaseEnv.length ? (
+            <div className="mt-6">
+              <FeedbackBanner
+                type="error"
+                message={`Diagnose: ontbrekende Supabase env variabelen: ${missingSupabaseEnv.join(", ")}`}
+              />
             </div>
           ) : null}
 

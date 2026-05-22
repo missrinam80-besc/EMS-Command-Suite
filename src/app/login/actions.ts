@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { clearDemoSession, createDemoSession, getAppSession, PROFILE_ACTIVATION_ERROR } from "@/lib/auth";
-import { hasSupabaseEnv, isDemoAuthEnabled } from "@/lib/env";
+import { getMissingSupabaseEnvNames, hasSupabaseEnv, isDemoAuthEnabled } from "@/lib/env";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
 const loginSchema = z.object({
@@ -18,7 +18,11 @@ export async function signInAction(formData: FormData) {
   }
 
   if (!hasSupabaseEnv()) {
-    redirect(`/login?error=${encodeURIComponent("Supabase is niet geconfigureerd voor deze omgeving.")}`);
+    const missing = getMissingSupabaseEnvNames();
+    const message = missing.length
+      ? `Supabase is niet geconfigureerd. Ontbrekende env: ${missing.join(", ")}`
+      : "Supabase is niet geconfigureerd voor deze omgeving.";
+    redirect(`/login?error=${encodeURIComponent(message)}`);
   }
 
   const parsed = loginSchema.safeParse({
