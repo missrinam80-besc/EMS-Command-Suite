@@ -1,7 +1,6 @@
 const isHostedBuild =
   process.env.VERCEL === "1" ||
-  Boolean(process.env.VERCEL_ENV) ||
-  process.env.CI === "true";
+  Boolean(process.env.VERCEL_ENV);
 
 if (!isHostedBuild) {
   process.exit(0);
