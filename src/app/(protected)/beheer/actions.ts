@@ -164,6 +164,23 @@ const formFieldUpdateSchema = z.object({
   isActive: z.boolean().default(true),
 });
 
+const formFieldReorderSchema = z.object({
+  fieldId: z.string().trim().min(1, "Veld ontbreekt."),
+  direction: z.enum(["up", "down"]),
+});
+
+const formSectionRenameSchema = z.object({
+  templateId: z.string().trim().min(1, "Template ontbreekt."),
+  fromSectionKey: z.string().trim().min(1, "Bronsectie ontbreekt."),
+  toSectionKey: z.string().trim().min(1, "Doelsectie ontbreekt."),
+});
+
+const formSectionDeleteSchema = z.object({
+  templateId: z.string().trim().min(1, "Template ontbreekt."),
+  sectionKey: z.string().trim().min(1, "Sectie ontbreekt."),
+  targetSectionKey: z.string().trim().min(1, "Doelsectie ontbreekt."),
+});
+
 function checkboxToBoolean(value: FormDataEntryValue | null) {
   return value === "on" || value === "true" || value === "1";
 }
@@ -1464,6 +1481,152 @@ export async function deleteFormFieldAction(formData: FormData) {
         "/beheer/rapporten-formulieren",
         "error",
         error instanceof Error ? error.message : "Formulierveld kon niet worden aangemaakt.",
+      ),
+    );
+  }
+}
+
+export async function moveFormFieldAction(formData: FormData) {
+  try {
+    const session = await requirePermission("config.forms.manage");
+    const parsed = formFieldReorderSchema.parse({
+      fieldId: String(formData.get("fieldId") ?? ""),
+      direction: String(formData.get("direction") ?? "up"),
+    });
+    const supabase = await createSupabaseServerClient();
+
+    const { data: current, error: currentError } = await supabase
+      .from("form_template_fields")
+      .select("id, template_id, section_key, sort_order, label")
+      .eq("id", parsed.fieldId)
+      .single();
+    if (currentError || !current) throw new Error("Veld niet gevonden.");
+
+    const orderAscending = parsed.direction !== "up";
+    const neighborQueryBase = supabase
+      .from("form_template_fields")
+      .select("id, sort_order, label")
+      .eq("template_id", current.template_id)
+      .eq("section_key", current.section_key);
+    const neighborQuery =
+      parsed.direction === "up"
+        ? neighborQueryBase.lt("sort_order", current.sort_order)
+        : neighborQueryBase.gt("sort_order", current.sort_order);
+    const { data: neighbor, error: neighborError } = await neighborQuery
+      .order("sort_order", { ascending: orderAscending })
+      .limit(1)
+      .maybeSingle();
+    if (neighborError) throw new Error(neighborError.message);
+    if (!neighbor) {
+      redirect(buildFeedbackUrl("/beheer/rapporten-formulieren", "success", "Geen verschuiving nodig."));
+    }
+
+    const { error: swapA } = await supabase
+      .from("form_template_fields")
+      .update({ sort_order: neighbor.sort_order })
+      .eq("id", current.id);
+    if (swapA) throw new Error(swapA.message);
+    const { error: swapB } = await supabase
+      .from("form_template_fields")
+      .update({ sort_order: current.sort_order })
+      .eq("id", neighbor.id);
+    if (swapB) throw new Error(swapB.message);
+
+    await writeAdminAudit(supabase, {
+      targetType: "form_template_field",
+      targetId: current.id,
+      action: "form_field_reordered",
+      summary: `Formulierveld verschoven (${parsed.direction}): ${current.label}`,
+      beforeState: { fieldId: current.id, sortOrder: current.sort_order },
+      afterState: { fieldId: current.id, sortOrder: neighbor.sort_order },
+      changedFields: ["sort_order"],
+      adminArea: "forms",
+      updatedBy: session.userId,
+    });
+
+    redirect(buildFeedbackUrl("/beheer/rapporten-formulieren", "success", "Veldvolgorde aangepast."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer/rapporten-formulieren",
+        "error",
+        error instanceof Error ? error.message : "Veldvolgorde kon niet worden aangepast.",
+      ),
+    );
+  }
+}
+
+export async function renameFormSectionAction(formData: FormData) {
+  try {
+    const session = await requirePermission("config.forms.manage");
+    const parsed = formSectionRenameSchema.parse({
+      templateId: String(formData.get("templateId") ?? ""),
+      fromSectionKey: String(formData.get("fromSectionKey") ?? ""),
+      toSectionKey: String(formData.get("toSectionKey") ?? ""),
+    });
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase
+      .from("form_template_fields")
+      .update({ section_key: parsed.toSectionKey })
+      .eq("template_id", parsed.templateId)
+      .eq("section_key", parsed.fromSectionKey);
+    if (error) throw new Error(error.message);
+
+    await writeAdminAudit(supabase, {
+      targetType: "form_template",
+      targetId: parsed.templateId,
+      action: "form_section_renamed",
+      summary: `Sectie hernoemd: ${parsed.fromSectionKey} -> ${parsed.toSectionKey}`,
+      afterState: parsed,
+      changedFields: ["section_key"],
+      adminArea: "forms",
+      updatedBy: session.userId,
+    });
+    redirect(buildFeedbackUrl("/beheer/rapporten-formulieren", "success", "Sectie hernoemd."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer/rapporten-formulieren",
+        "error",
+        error instanceof Error ? error.message : "Sectie kon niet worden hernoemd.",
+      ),
+    );
+  }
+}
+
+export async function deleteFormSectionAction(formData: FormData) {
+  try {
+    const session = await requirePermission("config.forms.manage");
+    const parsed = formSectionDeleteSchema.parse({
+      templateId: String(formData.get("templateId") ?? ""),
+      sectionKey: String(formData.get("sectionKey") ?? ""),
+      targetSectionKey: String(formData.get("targetSectionKey") ?? "general"),
+    });
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase
+      .from("form_template_fields")
+      .update({ section_key: parsed.targetSectionKey })
+      .eq("template_id", parsed.templateId)
+      .eq("section_key", parsed.sectionKey);
+    if (error) throw new Error(error.message);
+
+    await writeAdminAudit(supabase, {
+      targetType: "form_template",
+      targetId: parsed.templateId,
+      action: "form_section_deleted",
+      summary: `Sectie samengevoegd: ${parsed.sectionKey} -> ${parsed.targetSectionKey}`,
+      afterState: parsed,
+      changedFields: ["section_key"],
+      adminArea: "forms",
+      updatedBy: session.userId,
+    });
+    redirect(buildFeedbackUrl("/beheer/rapporten-formulieren", "success", "Sectie verwerkt."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer/rapporten-formulieren",
+        "error",
+        error instanceof Error ? error.message : "Sectie kon niet verwerkt worden.",
       ),
     );
   }
