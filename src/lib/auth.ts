@@ -22,6 +22,8 @@ const ALL_PERMISSION_CODES = [
   "meetings.update",
   "minutes.read",
   "minutes.update",
+  "handbook.read",
+  "handbook.manage",
   "audit.read",
   "staff.read_basic",
   "staff.read_sensitive",

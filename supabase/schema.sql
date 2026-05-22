@@ -252,6 +252,120 @@ create table if not exists public.form_template_fields (
   unique (template_id, field_key)
 );
 
+create table if not exists public.handbook_categories (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  label text not null,
+  description text,
+  sort_order integer not null default 100,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.handbook_articles (
+  id uuid primary key default gen_random_uuid(),
+  category_id uuid not null references public.handbook_categories(id) on delete restrict,
+  author_profile_id uuid references public.profiles(id) on delete set null,
+  title text not null,
+  slug text not null unique,
+  summary text,
+  content text not null default '',
+  status text not null default 'draft' check (status in ('draft', 'published', 'archived')),
+  sort_order integer not null default 100,
+  is_active boolean not null default true,
+  visible_rank_ids uuid[] not null default '{}'::uuid[],
+  visible_specialization_ids uuid[] not null default '{}'::uuid[],
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.hospital_config (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  hospital_name text not null,
+  short_name text,
+  city text,
+  country text,
+  timezone text not null default 'Europe/Brussels',
+  branding jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.feature_flags (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  label text not null,
+  description text,
+  is_enabled boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.navigation_items (
+  id uuid primary key default gen_random_uuid(),
+  item_key text not null unique,
+  parent_item_key text,
+  label text not null,
+  icon text,
+  route text,
+  required_permissions text[] not null default '{}'::text[],
+  sort_order integer not null default 100,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.medical_catalog_injury_types (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  label text not null,
+  sort_order integer not null default 100,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.medical_catalog_body_parts (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  label text not null,
+  sort_order integer not null default 100,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.medication_catalog (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  name text not null,
+  medication_type text,
+  description text,
+  sort_order integer not null default 100,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.treatment_rules (
+  id uuid primary key default gen_random_uuid(),
+  rule_code text not null unique,
+  injury_type_code text references public.medical_catalog_injury_types(code) on delete cascade,
+  body_part_code text references public.medical_catalog_body_parts(code) on delete set null,
+  severity text,
+  possible_diagnosis text,
+  recommended_treatment text,
+  recommended_medication_code text references public.medication_catalog(code) on delete set null,
+  recommended_tools text[] not null default '{}'::text[],
+  report_template_code text references public.form_templates(code) on delete set null,
+  sort_order integer not null default 100,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.form_template_fields
   add column if not exists binding_source text not null default 'custom';
 
@@ -458,6 +572,20 @@ create index if not exists idx_medical_reports_type_code on public.medical_repor
 create index if not exists idx_form_templates_report_type_code on public.form_templates(report_type_code);
 create index if not exists idx_form_templates_is_active on public.form_templates(is_active);
 create index if not exists idx_form_template_fields_template_id on public.form_template_fields(template_id);
+create index if not exists idx_handbook_categories_sort on public.handbook_categories(sort_order);
+create index if not exists idx_handbook_articles_category on public.handbook_articles(category_id);
+create index if not exists idx_handbook_articles_status on public.handbook_articles(status);
+create index if not exists idx_handbook_articles_sort on public.handbook_articles(sort_order);
+create index if not exists idx_hospital_config_code on public.hospital_config(code);
+create index if not exists idx_feature_flags_code on public.feature_flags(code);
+create index if not exists idx_feature_flags_enabled on public.feature_flags(is_enabled);
+create index if not exists idx_navigation_items_parent on public.navigation_items(parent_item_key);
+create index if not exists idx_navigation_items_sort on public.navigation_items(sort_order);
+create index if not exists idx_medical_catalog_injury_types_sort on public.medical_catalog_injury_types(sort_order);
+create index if not exists idx_medical_catalog_body_parts_sort on public.medical_catalog_body_parts(sort_order);
+create index if not exists idx_medication_catalog_sort on public.medication_catalog(sort_order);
+create index if not exists idx_treatment_rules_injury on public.treatment_rules(injury_type_code);
+create index if not exists idx_treatment_rules_medication on public.treatment_rules(recommended_medication_code);
 create index if not exists idx_file_attachments_target on public.file_attachments(target_type, target_id);
 create index if not exists idx_staff_evaluations_employee_profile_id on public.staff_evaluations(employee_profile_id);
 create index if not exists idx_staff_absences_profile_id on public.staff_absences(profile_id);
@@ -725,6 +853,51 @@ create trigger trg_form_template_fields_updated_at
 before update on public.form_template_fields
 for each row execute function public.set_updated_at();
 
+drop trigger if exists trg_handbook_categories_updated_at on public.handbook_categories;
+create trigger trg_handbook_categories_updated_at
+before update on public.handbook_categories
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_handbook_articles_updated_at on public.handbook_articles;
+create trigger trg_handbook_articles_updated_at
+before update on public.handbook_articles
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_hospital_config_updated_at on public.hospital_config;
+create trigger trg_hospital_config_updated_at
+before update on public.hospital_config
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_feature_flags_updated_at on public.feature_flags;
+create trigger trg_feature_flags_updated_at
+before update on public.feature_flags
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_navigation_items_updated_at on public.navigation_items;
+create trigger trg_navigation_items_updated_at
+before update on public.navigation_items
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_medical_catalog_injury_types_updated_at on public.medical_catalog_injury_types;
+create trigger trg_medical_catalog_injury_types_updated_at
+before update on public.medical_catalog_injury_types
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_medical_catalog_body_parts_updated_at on public.medical_catalog_body_parts;
+create trigger trg_medical_catalog_body_parts_updated_at
+before update on public.medical_catalog_body_parts
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_medication_catalog_updated_at on public.medication_catalog;
+create trigger trg_medication_catalog_updated_at
+before update on public.medication_catalog
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_treatment_rules_updated_at on public.treatment_rules;
+create trigger trg_treatment_rules_updated_at
+before update on public.treatment_rules
+for each row execute function public.set_updated_at();
+
 drop trigger if exists trg_patients_updated_at on public.patients;
 create trigger trg_patients_updated_at
 before update on public.patients
@@ -830,6 +1003,51 @@ create trigger trg_audit_form_template_fields
 after insert or update or delete on public.form_template_fields
 for each row execute function public.capture_table_audit();
 
+drop trigger if exists trg_audit_handbook_categories on public.handbook_categories;
+create trigger trg_audit_handbook_categories
+after insert or update or delete on public.handbook_categories
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_handbook_articles on public.handbook_articles;
+create trigger trg_audit_handbook_articles
+after insert or update or delete on public.handbook_articles
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_hospital_config on public.hospital_config;
+create trigger trg_audit_hospital_config
+after insert or update or delete on public.hospital_config
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_feature_flags on public.feature_flags;
+create trigger trg_audit_feature_flags
+after insert or update or delete on public.feature_flags
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_navigation_items on public.navigation_items;
+create trigger trg_audit_navigation_items
+after insert or update or delete on public.navigation_items
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_medical_catalog_injury_types on public.medical_catalog_injury_types;
+create trigger trg_audit_medical_catalog_injury_types
+after insert or update or delete on public.medical_catalog_injury_types
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_medical_catalog_body_parts on public.medical_catalog_body_parts;
+create trigger trg_audit_medical_catalog_body_parts
+after insert or update or delete on public.medical_catalog_body_parts
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_medication_catalog on public.medication_catalog;
+create trigger trg_audit_medication_catalog
+after insert or update or delete on public.medication_catalog
+for each row execute function public.capture_table_audit();
+
+drop trigger if exists trg_audit_treatment_rules on public.treatment_rules;
+create trigger trg_audit_treatment_rules
+after insert or update or delete on public.treatment_rules
+for each row execute function public.capture_table_audit();
+
 drop trigger if exists trg_audit_patients on public.patients;
 create trigger trg_audit_patients
 after insert or update or delete on public.patients
@@ -899,6 +1117,15 @@ alter table public.report_types enable row level security;
 alter table public.warning_badges enable row level security;
 alter table public.form_templates enable row level security;
 alter table public.form_template_fields enable row level security;
+alter table public.handbook_categories enable row level security;
+alter table public.handbook_articles enable row level security;
+alter table public.hospital_config enable row level security;
+alter table public.feature_flags enable row level security;
+alter table public.navigation_items enable row level security;
+alter table public.medical_catalog_injury_types enable row level security;
+alter table public.medical_catalog_body_parts enable row level security;
+alter table public.medication_catalog enable row level security;
+alter table public.treatment_rules enable row level security;
 alter table public.patients enable row level security;
 alter table public.patient_badges enable row level security;
 alter table public.patient_cases enable row level security;
@@ -1104,6 +1331,151 @@ on public.form_template_fields
 for all
 using (public.has_permission('config.forms.manage'))
 with check (public.has_permission('config.forms.manage'));
+
+drop policy if exists "handbook_categories_read_allowed" on public.handbook_categories;
+create policy "handbook_categories_read_allowed"
+on public.handbook_categories
+for select
+using (
+  public.has_permission('handbook.read')
+  or public.has_permission('handbook.manage')
+);
+
+drop policy if exists "handbook_categories_manage" on public.handbook_categories;
+create policy "handbook_categories_manage"
+on public.handbook_categories
+for all
+using (public.has_permission('handbook.manage'))
+with check (public.has_permission('handbook.manage'));
+
+drop policy if exists "handbook_articles_read_filtered" on public.handbook_articles;
+create policy "handbook_articles_read_filtered"
+on public.handbook_articles
+for select
+using (
+  public.has_permission('handbook.manage')
+  or (
+    public.has_permission('handbook.read')
+    and is_active = true
+    and status = 'published'
+    and (
+      coalesce(array_length(visible_rank_ids, 1), 0) = 0
+      or exists (
+        select 1
+        from public.profiles p
+        where p.id = auth.uid()
+          and p.rank_id = any (public.handbook_articles.visible_rank_ids)
+      )
+    )
+    and (
+      coalesce(array_length(visible_specialization_ids, 1), 0) = 0
+      or exists (
+        select 1
+        from public.profile_specializations ps
+        where ps.profile_id = auth.uid()
+          and ps.specialization_id = any (public.handbook_articles.visible_specialization_ids)
+      )
+    )
+  )
+);
+
+drop policy if exists "handbook_articles_manage" on public.handbook_articles;
+create policy "handbook_articles_manage"
+on public.handbook_articles
+for all
+using (public.has_permission('handbook.manage'))
+with check (public.has_permission('handbook.manage'));
+
+drop policy if exists "hospital_config_read_authenticated" on public.hospital_config;
+create policy "hospital_config_read_authenticated"
+on public.hospital_config
+for select
+using (auth.uid() is not null);
+
+drop policy if exists "hospital_config_manage_directie" on public.hospital_config;
+create policy "hospital_config_manage_directie"
+on public.hospital_config
+for all
+using (public.has_permission('config.database.read'))
+with check (public.has_permission('config.database.read'));
+
+drop policy if exists "feature_flags_read_authenticated" on public.feature_flags;
+create policy "feature_flags_read_authenticated"
+on public.feature_flags
+for select
+using (auth.uid() is not null);
+
+drop policy if exists "feature_flags_manage_directie" on public.feature_flags;
+create policy "feature_flags_manage_directie"
+on public.feature_flags
+for all
+using (public.has_permission('config.database.read'))
+with check (public.has_permission('config.database.read'));
+
+drop policy if exists "navigation_items_read_authenticated" on public.navigation_items;
+create policy "navigation_items_read_authenticated"
+on public.navigation_items
+for select
+using (auth.uid() is not null);
+
+drop policy if exists "navigation_items_manage_directie" on public.navigation_items;
+create policy "navigation_items_manage_directie"
+on public.navigation_items
+for all
+using (public.has_permission('config.database.read'))
+with check (public.has_permission('config.database.read'));
+
+drop policy if exists "medical_catalog_injury_types_read_authenticated" on public.medical_catalog_injury_types;
+create policy "medical_catalog_injury_types_read_authenticated"
+on public.medical_catalog_injury_types
+for select
+using (auth.uid() is not null);
+
+drop policy if exists "medical_catalog_injury_types_manage_directie" on public.medical_catalog_injury_types;
+create policy "medical_catalog_injury_types_manage_directie"
+on public.medical_catalog_injury_types
+for all
+using (public.has_permission('config.database.read'))
+with check (public.has_permission('config.database.read'));
+
+drop policy if exists "medical_catalog_body_parts_read_authenticated" on public.medical_catalog_body_parts;
+create policy "medical_catalog_body_parts_read_authenticated"
+on public.medical_catalog_body_parts
+for select
+using (auth.uid() is not null);
+
+drop policy if exists "medical_catalog_body_parts_manage_directie" on public.medical_catalog_body_parts;
+create policy "medical_catalog_body_parts_manage_directie"
+on public.medical_catalog_body_parts
+for all
+using (public.has_permission('config.database.read'))
+with check (public.has_permission('config.database.read'));
+
+drop policy if exists "medication_catalog_read_authenticated" on public.medication_catalog;
+create policy "medication_catalog_read_authenticated"
+on public.medication_catalog
+for select
+using (auth.uid() is not null);
+
+drop policy if exists "medication_catalog_manage_directie" on public.medication_catalog;
+create policy "medication_catalog_manage_directie"
+on public.medication_catalog
+for all
+using (public.has_permission('config.database.read'))
+with check (public.has_permission('config.database.read'));
+
+drop policy if exists "treatment_rules_read_authenticated" on public.treatment_rules;
+create policy "treatment_rules_read_authenticated"
+on public.treatment_rules
+for select
+using (auth.uid() is not null);
+
+drop policy if exists "treatment_rules_manage_directie" on public.treatment_rules;
+create policy "treatment_rules_manage_directie"
+on public.treatment_rules
+for all
+using (public.has_permission('config.database.read'))
+with check (public.has_permission('config.database.read'));
 
 drop policy if exists "patients_read_allowed" on public.patients;
 create policy "patients_read_allowed"

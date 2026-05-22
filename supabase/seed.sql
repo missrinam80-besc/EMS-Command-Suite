@@ -43,6 +43,8 @@ values
   ('meetings.update', 'Meetings beheren', 'Planning, status en actiepunten beheren.'),
   ('minutes.read', 'Notulen bekijken', 'Notulen en follow-up van meetings bekijken.'),
   ('minutes.update', 'Notulen bewerken', 'Notulen en follow-up aanpassen.'),
+  ('handbook.read', 'Handboek lezen', 'Gepubliceerde handboekartikelen raadplegen.'),
+  ('handbook.manage', 'Handboek beheren', 'Handboekcategorieen en -artikelen aanmaken, bewerken en verwijderen.'),
   ('audit.read', 'Auditlog bekijken', 'Centrale auditlog bekijken.'),
   ('staff.read_basic', 'Basis personeelslijst bekijken', 'Niet-gevoelige personeelslijst bekijken.'),
   ('staff.read_sensitive', 'Gevoelig personeel bekijken', 'Volledige personeelsdossiers en HR-data bekijken.'),
@@ -135,6 +137,196 @@ set
   is_system = excluded.is_system,
   updated_at = now();
 
+insert into public.hospital_config (
+  code,
+  hospital_name,
+  short_name,
+  city,
+  country,
+  timezone,
+  branding
+)
+values
+  (
+    'default',
+    'Pillbox Hill Medical Center',
+    'PHMC',
+    'Los Santos',
+    'San Andreas',
+    'Europe/Brussels',
+    '{
+      "primary_color": "#fada0b",
+      "secondary_color": "#010100",
+      "accent_color": "#fe0100",
+      "background_color": "#fffeea"
+    }'::jsonb
+  )
+on conflict (code) do update
+set
+  hospital_name = excluded.hospital_name,
+  short_name = excluded.short_name,
+  city = excluded.city,
+  country = excluded.country,
+  timezone = excluded.timezone,
+  branding = excluded.branding,
+  updated_at = now();
+
+insert into public.feature_flags (code, label, description, is_enabled)
+values
+  ('cases_enabled', 'Cases ingeschakeld', 'Cases module actief.', true),
+  ('audit_logging', 'Audit logging', 'Audittrails actief op kernmutaties.', true),
+  ('specializations', 'Specialisaties', 'Specialisatielogica actief.', true),
+  ('wizard_reports', 'Wizard rapporten', 'Wizardgedreven rapportflow.', true),
+  ('handbook_enabled', 'Handboek', 'Handboekmodule actief.', true),
+  ('ai_assist_enabled', 'AI assist', 'AI assistent-functies actief.', false)
+on conflict (code) do update
+set
+  label = excluded.label,
+  description = excluded.description,
+  is_enabled = excluded.is_enabled,
+  updated_at = now();
+
+insert into public.navigation_items (
+  item_key,
+  parent_item_key,
+  label,
+  icon,
+  route,
+  required_permissions,
+  sort_order,
+  is_active
+)
+values
+  ('dashboard', null, 'Dashboard', 'layout-dashboard', '/', '{}'::text[], 10, true),
+  ('zorg', null, 'Zorg', 'heart-pulse', '/zorg', '{"patients.read"}'::text[], 20, true),
+  ('zorg_patienten', 'zorg', 'Patienten', null, '/zorg/patienten', '{"patients.read"}'::text[], 21, true),
+  ('zorg_cases', 'zorg', 'Cases', null, '/zorg/patienten', '{"cases.read"}'::text[], 22, true),
+  ('organisatie', null, 'Organisatie', 'calendar-days', '/organisatie', '{"meetings.read"}'::text[], 30, true),
+  ('personeel', null, 'Personeel', 'users', '/personeel', '{"staff.read_basic"}'::text[], 40, true),
+  ('handboek', null, 'Handboek', 'book-open', '/handboek', '{"handbook.read"}'::text[], 50, true),
+  ('beheer', null, 'Beheer', 'settings', '/beheer', '{"config.panel.read"}'::text[], 90, true)
+on conflict (item_key) do update
+set
+  parent_item_key = excluded.parent_item_key,
+  label = excluded.label,
+  icon = excluded.icon,
+  route = excluded.route,
+  required_permissions = excluded.required_permissions,
+  sort_order = excluded.sort_order,
+  is_active = excluded.is_active,
+  updated_at = now();
+
+insert into public.medical_catalog_injury_types (code, label, sort_order, is_active)
+values
+  ('schaafwonde', 'Schaafwonde', 10, true),
+  ('snijwonde', 'Snijwonde', 20, true),
+  ('scheurwonde', 'Scheurwonde', 30, true),
+  ('steekwonde', 'Steekwonde', 40, true),
+  ('brandwonde', 'Brandwonde', 50, true),
+  ('kneuzing', 'Kneuzing', 60, true),
+  ('verpletteringsletsel', 'Verpletteringsletsel', 70, true),
+  ('interne_bloeding', 'Interne bloeding', 80, true),
+  ('schotwonde', 'Schotwonde', 90, true),
+  ('shotgun_verwonding', 'Shotgun verwonding', 100, true),
+  ('explosieletsel', 'Explosieletsel', 110, true),
+  ('breuk', 'Breuk', 120, true),
+  ('open_breuk', 'Open breuk', 130, true),
+  ('ontwrichting', 'Ontwrichting', 140, true),
+  ('amputatie', 'Amputatie', 150, true),
+  ('hoofdtrauma', 'Hoofdtrauma', 160, true)
+on conflict (code) do update
+set
+  label = excluded.label,
+  sort_order = excluded.sort_order,
+  is_active = excluded.is_active,
+  updated_at = now();
+
+insert into public.medical_catalog_body_parts (code, label, sort_order, is_active)
+values
+  ('hoofd', 'Hoofd', 10, true),
+  ('nek', 'Nek', 20, true),
+  ('borst', 'Borst', 30, true),
+  ('rug', 'Rug', 40, true),
+  ('buik', 'Buik', 50, true),
+  ('linkerarm', 'Linkerarm', 60, true),
+  ('rechterarm', 'Rechterarm', 70, true),
+  ('linkerhand', 'Linkerhand', 80, true),
+  ('rechterhand', 'Rechterhand', 90, true),
+  ('linkerbeen', 'Linkerbeen', 100, true),
+  ('rechterbeen', 'Rechterbeen', 110, true),
+  ('linkervoet', 'Linkervoet', 120, true),
+  ('rechtervoet', 'Rechtervoet', 130, true)
+on conflict (code) do update
+set
+  label = excluded.label,
+  sort_order = excluded.sort_order,
+  is_active = excluded.is_active,
+  updated_at = now();
+
+insert into public.medication_catalog (code, name, medication_type, sort_order, is_active)
+values
+  ('morphine', 'Morfine', 'painkiller', 10, true),
+  ('epinephrine', 'Epinephrine', 'resuscitation', 20, true),
+  ('propofol', 'Propofol', 'sedation', 30, true),
+  ('saline', 'Saline', 'fluids', 40, true)
+on conflict (code) do update
+set
+  name = excluded.name,
+  medication_type = excluded.medication_type,
+  sort_order = excluded.sort_order,
+  is_active = excluded.is_active,
+  updated_at = now();
+
+insert into public.treatment_rules (
+  rule_code,
+  injury_type_code,
+  body_part_code,
+  severity,
+  possible_diagnosis,
+  recommended_treatment,
+  recommended_medication_code,
+  recommended_tools,
+  sort_order,
+  is_active
+)
+values
+  (
+    'trauma_hoofd_kneuzing_mild',
+    'kneuzing',
+    'hoofd',
+    'mild',
+    'Lichte contusie',
+    'Observatie, koeling en neurologische controle',
+    null,
+    '{"cold_pack"}'::text[],
+    10,
+    true
+  ),
+  (
+    'trauma_open_breuk_been_hoog',
+    'open_breuk',
+    'rechterbeen',
+    'hoog',
+    'Open fractuur',
+    'Immobilisatie, bloedingcontrole en spoedtransport',
+    'morphine',
+    '{"splint","pressure_bandage"}'::text[],
+    20,
+    true
+  )
+on conflict (rule_code) do update
+set
+  injury_type_code = excluded.injury_type_code,
+  body_part_code = excluded.body_part_code,
+  severity = excluded.severity,
+  possible_diagnosis = excluded.possible_diagnosis,
+  recommended_treatment = excluded.recommended_treatment,
+  recommended_medication_code = excluded.recommended_medication_code,
+  recommended_tools = excluded.recommended_tools,
+  sort_order = excluded.sort_order,
+  is_active = excluded.is_active,
+  updated_at = now();
+
 with rank_permission_matrix as (
   select 'rank_1'::text as rank_code, unnest(array[
     'patients.read',
@@ -154,6 +346,8 @@ with rank_permission_matrix as (
     'meetings.update',
     'minutes.read',
     'minutes.update',
+    'handbook.read',
+    'handbook.manage',
     'audit.read',
     'staff.read_basic',
     'staff.read_sensitive',
@@ -185,6 +379,7 @@ with rank_permission_matrix as (
     'meetings.update',
     'minutes.read',
     'minutes.update',
+    'handbook.read',
     'audit.read',
     'staff.read_basic',
     'staff.read_sensitive',
@@ -206,6 +401,7 @@ with rank_permission_matrix as (
     'meetings.create',
     'minutes.read',
     'minutes.update',
+    'handbook.read',
     'staff.read_basic',
     'staff.read_sensitive'
   ])
@@ -219,6 +415,7 @@ with rank_permission_matrix as (
     'reports.update',
     'meetings.read',
     'minutes.read',
+    'handbook.read',
     'staff.read_basic'
   ])
   union all
@@ -231,6 +428,7 @@ with rank_permission_matrix as (
     'reports.update_own',
     'meetings.read',
     'minutes.read',
+    'handbook.read',
     'staff.read_basic'
   ])
   union all
@@ -240,6 +438,7 @@ with rank_permission_matrix as (
     'reports.update_own',
     'meetings.read',
     'minutes.read',
+    'handbook.read',
     'staff.read_basic'
   ])
 )
@@ -268,6 +467,7 @@ with support_permission_matrix as (
     'meetings.update',
     'minutes.read',
     'minutes.update',
+    'handbook.read',
     'audit.read',
     'staff.read_basic',
     'staff.read_sensitive',
@@ -291,6 +491,7 @@ with support_permission_matrix as (
     'meetings.update',
     'minutes.read',
     'minutes.update',
+    'handbook.read',
     'audit.read',
     'staff.read_basic',
     'staff.read_sensitive',

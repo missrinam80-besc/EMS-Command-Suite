@@ -121,6 +121,67 @@ export type AdminAuditLogRow = {
   createdAt: string;
 };
 
+export type ManagedHospitalConfig = {
+  id: string;
+  code: string;
+  hospitalName: string;
+  shortName: string | null;
+  city: string | null;
+  country: string | null;
+  timezone: string;
+};
+
+export type ManagedFeatureFlag = {
+  id: string;
+  code: string;
+  label: string;
+  description: string | null;
+  isEnabled: boolean;
+};
+
+export type ManagedNavigationItem = {
+  id: string;
+  itemKey: string;
+  parentItemKey: string | null;
+  label: string;
+  icon: string | null;
+  route: string | null;
+  requiredPermissions: string[];
+  sortOrder: number;
+  isActive: boolean;
+};
+
+export type ManagedMedicalCatalogItem = {
+  id: string;
+  code: string;
+  label: string;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+export type ManagedMedicationCatalogItem = {
+  id: string;
+  code: string;
+  name: string;
+  medicationType: string | null;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+export type ManagedTreatmentRule = {
+  id: string;
+  ruleCode: string;
+  injuryTypeCode: string | null;
+  bodyPartCode: string | null;
+  severity: string | null;
+  possibleDiagnosis: string | null;
+  recommendedTreatment: string | null;
+  recommendedMedicationCode: string | null;
+  recommendedTools: string[];
+  sortOrder: number;
+  isActive: boolean;
+};
+
 function uniquePermissions(codes: string[]): AppPermission[] {
   return [...new Set(codes)].filter((code): code is AppPermission => Boolean(code));
 }
@@ -367,6 +428,153 @@ export async function getManagedWarningBadges() {
 
 export async function getManagedPatientStatuses() {
   return getManagedCatalog("patient_statuses");
+}
+
+export async function getManagedHospitalConfig(): Promise<ManagedHospitalConfig[]> {
+  if (shouldUseDemoData() || !hasSupabaseEnv()) return [];
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("hospital_config")
+    .select("id, code, hospital_name, short_name, city, country, timezone")
+    .order("created_at", { ascending: true });
+
+  if (error) return [];
+
+  return (data ?? []).map((item) => ({
+    id: item.id,
+    code: item.code,
+    hospitalName: item.hospital_name,
+    shortName: item.short_name,
+    city: item.city,
+    country: item.country,
+    timezone: item.timezone,
+  }));
+}
+
+export async function getManagedFeatureFlags(): Promise<ManagedFeatureFlag[]> {
+  if (shouldUseDemoData() || !hasSupabaseEnv()) return [];
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("feature_flags")
+    .select("id, code, label, description, is_enabled")
+    .order("code", { ascending: true });
+
+  if (error) return [];
+
+  return (data ?? []).map((item) => ({
+    id: item.id,
+    code: item.code,
+    label: item.label,
+    description: item.description,
+    isEnabled: item.is_enabled,
+  }));
+}
+
+export async function getManagedNavigationItems(): Promise<ManagedNavigationItem[]> {
+  if (shouldUseDemoData() || !hasSupabaseEnv()) return [];
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("navigation_items")
+    .select("id, item_key, parent_item_key, label, icon, route, required_permissions, sort_order, is_active")
+    .order("sort_order", { ascending: true });
+
+  if (error) return [];
+
+  return (data ?? []).map((item) => ({
+    id: item.id,
+    itemKey: item.item_key,
+    parentItemKey: item.parent_item_key,
+    label: item.label,
+    icon: item.icon,
+    route: item.route,
+    requiredPermissions: Array.isArray(item.required_permissions)
+      ? item.required_permissions.filter((entry): entry is string => typeof entry === "string")
+      : [],
+    sortOrder: item.sort_order,
+    isActive: item.is_active,
+  }));
+}
+
+export async function getManagedInjuryTypes(): Promise<ManagedMedicalCatalogItem[]> {
+  if (shouldUseDemoData() || !hasSupabaseEnv()) return [];
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("medical_catalog_injury_types")
+    .select("id, code, label, sort_order, is_active")
+    .order("sort_order", { ascending: true });
+  if (error) return [];
+  return (data ?? []).map((item) => ({
+    id: item.id,
+    code: item.code,
+    label: item.label,
+    sortOrder: item.sort_order,
+    isActive: item.is_active,
+  }));
+}
+
+export async function getManagedBodyParts(): Promise<ManagedMedicalCatalogItem[]> {
+  if (shouldUseDemoData() || !hasSupabaseEnv()) return [];
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("medical_catalog_body_parts")
+    .select("id, code, label, sort_order, is_active")
+    .order("sort_order", { ascending: true });
+  if (error) return [];
+  return (data ?? []).map((item) => ({
+    id: item.id,
+    code: item.code,
+    label: item.label,
+    sortOrder: item.sort_order,
+    isActive: item.is_active,
+  }));
+}
+
+export async function getManagedMedicationCatalog(): Promise<ManagedMedicationCatalogItem[]> {
+  if (shouldUseDemoData() || !hasSupabaseEnv()) return [];
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("medication_catalog")
+    .select("id, code, name, medication_type, sort_order, is_active")
+    .order("sort_order", { ascending: true });
+  if (error) return [];
+  return (data ?? []).map((item) => ({
+    id: item.id,
+    code: item.code,
+    name: item.name,
+    medicationType: item.medication_type,
+    sortOrder: item.sort_order,
+    isActive: item.is_active,
+  }));
+}
+
+export async function getManagedTreatmentRules(): Promise<ManagedTreatmentRule[]> {
+  if (shouldUseDemoData() || !hasSupabaseEnv()) return [];
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("treatment_rules")
+    .select(
+      "id, rule_code, injury_type_code, body_part_code, severity, possible_diagnosis, recommended_treatment, recommended_medication_code, recommended_tools, sort_order, is_active",
+    )
+    .order("sort_order", { ascending: true });
+  if (error) return [];
+  return (data ?? []).map((item) => ({
+    id: item.id,
+    ruleCode: item.rule_code,
+    injuryTypeCode: item.injury_type_code,
+    bodyPartCode: item.body_part_code,
+    severity: item.severity,
+    possibleDiagnosis: item.possible_diagnosis,
+    recommendedTreatment: item.recommended_treatment,
+    recommendedMedicationCode: item.recommended_medication_code,
+    recommendedTools: Array.isArray(item.recommended_tools)
+      ? item.recommended_tools.filter((entry): entry is string => typeof entry === "string")
+      : [],
+    sortOrder: item.sort_order,
+    isActive: item.is_active,
+  }));
 }
 
 export async function getManagedFormTemplates(): Promise<ManagedFormTemplate[]> {

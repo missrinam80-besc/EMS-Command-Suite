@@ -22,6 +22,8 @@ Dit document volgt de actuele runtime-permissies in de app en vervangt oudere ca
 - `meetings.update`
 - `minutes.read`
 - `minutes.update`
+- `handbook.read`
+- `handbook.manage`
 - `audit.read`
 - `staff.read_basic`
 - `staff.read_sensitive`
@@ -72,6 +74,7 @@ Dit document volgt de actuele runtime-permissies in de app en vervangt oudere ca
 - `/zorg`: vereist minstens een van `patients.read`, `cases.read`, `reports.read`
 - `/personeel`: vereist `staff.read_basic`
 - `/organisatie`: vereist minstens een van `meetings.read`, `minutes.read`
+- `/handboek`: vereist minstens een van `handbook.read`, `handbook.manage`
 - `/beheer`: vereist `config.panel.read`
 
 ## Belangrijke enforcement-notes

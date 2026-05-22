@@ -5,12 +5,20 @@ import { AdminUserManagement } from "@/components/admin-user-management";
 import { AdminRankGroups } from "@/components/admin-rank-groups";
 import { AdminConfigCatalogs } from "@/components/admin-config-catalogs";
 import { AdminInfrastructureBoard } from "@/components/admin-infrastructure-board";
+import { AdminPlatformConfigBoard } from "@/components/admin-platform-config-board";
 import { requirePermission } from "@/lib/auth";
 import {
   getAdminAuditLogs,
+  getManagedBodyParts,
+  getManagedFeatureFlags,
+  getManagedHospitalConfig,
+  getManagedInjuryTypes,
+  getManagedMedicationCatalog,
+  getManagedNavigationItems,
   getInfrastructureHealth,
   getManagedPatientStatuses,
   getManagedRanks,
+  getManagedTreatmentRules,
   getManagedUsers,
   getManagedWarningBadges,
   getPermissionCatalog,
@@ -34,6 +42,13 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
     rankGroups,
     warningBadges,
     patientStatuses,
+    hospitalConfig,
+    featureFlags,
+    navigationItems,
+    injuryTypes,
+    bodyParts,
+    medicationCatalog,
+    treatmentRules,
     logs,
   ] = await Promise.all([
     getInfrastructureHealth(),
@@ -43,6 +58,13 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
     getRankPermissionGroups(),
     getManagedWarningBadges(),
     getManagedPatientStatuses(),
+    getManagedHospitalConfig(),
+    getManagedFeatureFlags(),
+    getManagedNavigationItems(),
+    getManagedInjuryTypes(),
+    getManagedBodyParts(),
+    getManagedMedicationCatalog(),
+    getManagedTreatmentRules(),
     getAdminAuditLogs(),
   ]);
 
@@ -129,6 +151,15 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
       <AdminConfigCatalogs
         warningBadges={warningBadges}
         patientStatuses={patientStatuses}
+      />
+      <AdminPlatformConfigBoard
+        hospitalConfig={hospitalConfig}
+        featureFlags={featureFlags}
+        navigationItems={navigationItems}
+        injuryTypes={injuryTypes}
+        bodyParts={bodyParts}
+        medicationCatalog={medicationCatalog}
+        treatmentRules={treatmentRules}
       />
 
       <section className="w-full">
