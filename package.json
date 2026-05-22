@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "set NODE_OPTIONS=--use-system-ca&& next dev",
-    "build": "next build",
+    "build": "node scripts/check-hosted-env.mjs && next build",
     "start": "next start",
     "lint": "eslint",
     "create:admin-user": "set NODE_OPTIONS=--use-system-ca&& node scripts/create-admin-user.mjs"
