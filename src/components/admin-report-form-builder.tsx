@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   createFormFieldAction,
@@ -68,12 +68,9 @@ export function AdminReportFormBuilder({
       <p className="text-sm uppercase tracking-[0.2em] text-[var(--color-muted)]">
         Rapporten en formulieren
       </p>
-      <h1 className="mt-2 text-3xl font-semibold text-[var(--color-ink)]">
-        Builder
-      </h1>
+      <h1 className="mt-2 text-3xl font-semibold text-[var(--color-ink)]">Builder</h1>
       <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--color-muted)]">
-        Beheer rapporttypes en formuliertypes op één plaats. Voeg velden toe als custom JSON-veld
-        of bind ze aan bestaande databasekolommen.
+        Beheer template types op een plaats. Werk met secties, validaties en conditionele logica.
       </p>
 
       <details open className="mt-6 rounded-[1.25rem] border border-[var(--color-line)] bg-[var(--color-surface)] p-5">
@@ -114,11 +111,9 @@ export function AdminReportFormBuilder({
                     <input type="checkbox" name="isActive" defaultChecked={type.isActive} />
                     Actief
                   </label>
-                  <div className="flex items-center gap-2">
-                    <button type="submit" className="rounded-full border border-[var(--color-line)] px-4 py-2 text-sm font-semibold">
-                      Opslaan
-                    </button>
-                  </div>
+                  <button type="submit" className="rounded-full border border-[var(--color-line)] px-4 py-2 text-sm font-semibold">
+                    Opslaan
+                  </button>
                 </div>
               </form>
               {!type.isSystem ? (
@@ -136,13 +131,17 @@ export function AdminReportFormBuilder({
 
       <details open className="mt-4 rounded-[1.25rem] border border-[var(--color-line)] bg-[var(--color-surface)] p-5">
         <summary className="cursor-pointer text-lg font-semibold text-[var(--color-ink)]">
-          Formuliertypes beheren
+          Template types beheren (formulier + rapport)
         </summary>
 
         <form action={createFormTemplateAction} className="mt-4 grid gap-3">
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-3">
             <input name="code" required placeholder="medicatie_registratie" className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm" />
             <input name="label" required placeholder="Medicatieregistratie" className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm" />
+            <select name="templateKind" defaultValue="form" className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm">
+              <option value="form">Formulier</option>
+              <option value="report">Rapport</option>
+            </select>
           </div>
           <select name="reportTypeCode" defaultValue="" className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm">
             <option value="">Geen rapporttype gekoppeld</option>
@@ -159,7 +158,7 @@ export function AdminReportFormBuilder({
               Actief
             </label>
             <button type="submit" className="rounded-full bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold">
-              Formuliertype aanmaken
+              Template aanmaken
             </button>
           </div>
         </form>
@@ -173,7 +172,7 @@ export function AdminReportFormBuilder({
         <form action={createFormFieldAction} className="mt-4 grid gap-3">
           <div className="grid gap-3 md:grid-cols-3">
             <select name="templateId" required defaultValue="" className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm">
-              <option value="">Kies formulier</option>
+              <option value="">Kies template</option>
               {templates.map((template) => (
                 <option key={template.id} value={template.id}>
                   {template.label} ({template.code})
@@ -205,9 +204,12 @@ export function AdminReportFormBuilder({
               className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm"
             />
           </div>
+          <input name="sectionKey" defaultValue="general" placeholder="Sectie key (bv. intake)" className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm" />
           <input name="placeholder" placeholder="Placeholder" className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm" />
           <textarea name="helpText" rows={2} placeholder="Hulptekst" className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm" />
           <textarea name="options" rows={3} placeholder="Meerkeuzeopties (1 per lijn)" className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm" />
+          <textarea name="validationRules" rows={2} defaultValue="{}" placeholder='Validatie JSON, bv. {"min":1,"max":10}' className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm" />
+          <textarea name="conditionalLogic" rows={2} defaultValue="{}" placeholder='Conditional JSON, bv. {"when":{"field":"prioriteit","equals":"P1"}}' className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm" />
           <div className="grid gap-3 md:grid-cols-3">
             <input type="number" name="sortOrder" defaultValue={100} className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm" />
             <label className="flex items-center gap-2 text-sm text-[var(--color-muted)]">
@@ -238,12 +240,16 @@ export function AdminReportFormBuilder({
               <article key={template.id} className="rounded-xl border border-[var(--color-line)] bg-white p-4">
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="text-base font-semibold text-[var(--color-ink)]">
-                    {template.label} ({template.code})
+                    {template.label} ({template.code}) · {template.templateKind}
                   </h3>
                 </div>
                 <form action={updateFormTemplateAction} className="mt-3 grid gap-2">
                   <input type="hidden" name="id" value={template.id} />
                   <input name="label" defaultValue={template.label} className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm" />
+                  <select name="templateKind" defaultValue={template.templateKind} className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm">
+                    <option value="form">Formulier</option>
+                    <option value="report">Rapport</option>
+                  </select>
                   <select name="reportTypeCode" defaultValue={template.reportTypeCode ?? ""} className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm">
                     <option value="">Geen rapporttype gekoppeld</option>
                     {reportTypes.map((type) => (
@@ -259,11 +265,11 @@ export function AdminReportFormBuilder({
                   </label>
                   <div className="flex gap-2">
                     <button type="submit" className="rounded-full border border-[var(--color-line)] px-4 py-2 text-sm font-semibold">
-                      Formulier opslaan
+                      Template opslaan
                     </button>
                     {!template.isSystem ? (
                       <button formAction={deleteFormTemplateAction} className="rounded-full border border-[#ef4444] px-4 py-2 text-sm font-semibold text-[#b91c1c]">
-                        Formulier verwijderen
+                        Template verwijderen
                       </button>
                     ) : null}
                   </div>
@@ -279,6 +285,7 @@ export function AdminReportFormBuilder({
                           <input name="label" defaultValue={field.label} className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs" />
                           <input type="number" name="sortOrder" defaultValue={field.sortOrder} className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs" />
                         </div>
+                        <input name="sectionKey" defaultValue={field.sectionKey} className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs" />
                         <select name="fieldType" defaultValue={field.fieldType} className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs">
                           {fieldTypes.map((type) => (
                             <option key={type} value={type}>
@@ -304,12 +311,9 @@ export function AdminReportFormBuilder({
                         </div>
                         <textarea name="placeholder" defaultValue={field.placeholder ?? ""} rows={1} className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs" />
                         <textarea name="helpText" defaultValue={field.helpText ?? ""} rows={1} className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs" />
-                        <textarea
-                          name="options"
-                          defaultValue={field.options.join("\n")}
-                          rows={2}
-                          className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs"
-                        />
+                        <textarea name="options" defaultValue={field.options.join("\n")} rows={2} className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs" />
+                        <textarea name="validationRules" defaultValue={JSON.stringify(field.validationRules)} rows={2} className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs" />
+                        <textarea name="conditionalLogic" defaultValue={JSON.stringify(field.conditionalLogic)} rows={2} className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs" />
                         <div className="flex items-center gap-4">
                           <label className="flex items-center gap-2 text-xs text-[var(--color-muted)]">
                             <input type="checkbox" name="isRequired" defaultChecked={field.isRequired} />

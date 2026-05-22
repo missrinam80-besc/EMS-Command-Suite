@@ -94,6 +94,7 @@ const rankCreateSchema = z.object({
 const formTemplateCreateSchema = z.object({
   code: z.string().trim().min(2, "Code is verplicht."),
   label: z.string().trim().min(2, "Label is verplicht."),
+  templateKind: z.enum(["form", "report"]).default("form"),
   description: z.string().trim().optional(),
   reportTypeCode: z.string().trim().optional(),
   isActive: z.boolean().default(true),
@@ -102,6 +103,7 @@ const formTemplateCreateSchema = z.object({
 const formTemplateUpdateSchema = z.object({
   id: z.string().trim().min(1, "Formulier ontbreekt."),
   label: z.string().trim().min(2, "Label is verplicht."),
+  templateKind: z.enum(["form", "report"]).default("form"),
   description: z.string().trim().optional(),
   reportTypeCode: z.string().trim().optional(),
   isActive: z.boolean().default(true),
@@ -124,8 +126,11 @@ const formFieldCreateSchema = z.object({
   ]),
   placeholder: z.string().trim().optional(),
   helpText: z.string().trim().optional(),
+  sectionKey: z.string().trim().min(1).default("general"),
   bindingSource: z.enum(["custom", "medical_reports", "patients", "patient_cases"]).default("custom"),
   bindingColumn: z.string().trim().optional(),
+  validationRules: z.string().trim().optional(),
+  conditionalLogic: z.string().trim().optional(),
   options: z.string().trim().optional(),
   isRequired: z.boolean().default(false),
   sortOrder: z.coerce.number().int().min(0).default(100),
@@ -148,8 +153,11 @@ const formFieldUpdateSchema = z.object({
   ]),
   placeholder: z.string().trim().optional(),
   helpText: z.string().trim().optional(),
+  sectionKey: z.string().trim().min(1).default("general"),
   bindingSource: z.enum(["custom", "medical_reports", "patients", "patient_cases"]).default("custom"),
   bindingColumn: z.string().trim().optional(),
+  validationRules: z.string().trim().optional(),
+  conditionalLogic: z.string().trim().optional(),
   options: z.string().trim().optional(),
   isRequired: z.boolean().default(false),
   sortOrder: z.coerce.number().int().min(0).default(100),
@@ -191,6 +199,16 @@ function parseOptionsList(raw?: string) {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function parseJsonObject(raw?: string) {
+  const trimmed = String(raw ?? "").trim();
+  if (!trimmed) return {};
+  const parsed = JSON.parse(trimmed);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("JSON moet een object zijn.");
+  }
+  return parsed as Record<string, unknown>;
 }
 
 async function writeAdminAudit(
@@ -1069,6 +1087,7 @@ export async function createFormTemplateAction(formData: FormData) {
     const parsed = formTemplateCreateSchema.parse({
       code: String(formData.get("code") ?? ""),
       label: String(formData.get("label") ?? ""),
+      templateKind: String(formData.get("templateKind") ?? "form"),
       description: String(formData.get("description") ?? ""),
       reportTypeCode: String(formData.get("reportTypeCode") ?? ""),
       isActive: checkboxToBoolean(formData.get("isActive")),
@@ -1080,6 +1099,7 @@ export async function createFormTemplateAction(formData: FormData) {
       .insert({
         code: parsed.code,
         label: parsed.label,
+        template_kind: parsed.templateKind,
         description: cleanOptional(parsed.description),
         report_type_code: cleanOptional(parsed.reportTypeCode),
         is_active: parsed.isActive,
@@ -1098,7 +1118,7 @@ export async function createFormTemplateAction(formData: FormData) {
       action: "form_template_created",
       summary: `Formulier aangemaakt: ${parsed.label}`,
       afterState: parsed,
-      changedFields: ["code", "label", "description", "report_type_code", "is_active"],
+      changedFields: ["code", "label", "template_kind", "description", "report_type_code", "is_active"],
       adminArea: "forms",
       updatedBy: session.userId,
     });
@@ -1121,6 +1141,7 @@ export async function updateFormTemplateAction(formData: FormData) {
     const parsed = formTemplateUpdateSchema.parse({
       id: String(formData.get("id") ?? ""),
       label: String(formData.get("label") ?? ""),
+      templateKind: String(formData.get("templateKind") ?? "form"),
       description: String(formData.get("description") ?? ""),
       reportTypeCode: String(formData.get("reportTypeCode") ?? ""),
       isActive: checkboxToBoolean(formData.get("isActive")),
@@ -1129,7 +1150,7 @@ export async function updateFormTemplateAction(formData: FormData) {
     const supabase = await createSupabaseServerClient();
     const { data: current } = await supabase
       .from("form_templates")
-      .select("id, label, description, report_type_code, is_active")
+      .select("id, label, template_kind, description, report_type_code, is_active")
       .eq("id", parsed.id)
       .single();
 
@@ -1137,6 +1158,7 @@ export async function updateFormTemplateAction(formData: FormData) {
       .from("form_templates")
       .update({
         label: parsed.label,
+        template_kind: parsed.templateKind,
         description: cleanOptional(parsed.description),
         report_type_code: cleanOptional(parsed.reportTypeCode),
         is_active: parsed.isActive,
@@ -1154,7 +1176,7 @@ export async function updateFormTemplateAction(formData: FormData) {
       summary: `Formulier bijgewerkt: ${parsed.label}`,
       beforeState: current ?? null,
       afterState: parsed,
-      changedFields: ["label", "description", "report_type_code", "is_active"],
+      changedFields: ["label", "template_kind", "description", "report_type_code", "is_active"],
       adminArea: "forms",
       updatedBy: session.userId,
     });
@@ -1230,8 +1252,11 @@ export async function createFormFieldAction(formData: FormData) {
       fieldType: String(formData.get("fieldType") ?? "text"),
       placeholder: String(formData.get("placeholder") ?? ""),
       helpText: String(formData.get("helpText") ?? ""),
+      sectionKey: String(formData.get("sectionKey") ?? "general"),
       bindingSource: String(formData.get("bindingSource") ?? "custom"),
       bindingColumn: String(formData.get("bindingColumn") ?? ""),
+      validationRules: String(formData.get("validationRules") ?? ""),
+      conditionalLogic: String(formData.get("conditionalLogic") ?? ""),
       options: String(formData.get("options") ?? ""),
       isRequired: checkboxToBoolean(formData.get("isRequired")),
       sortOrder: Number(formData.get("sortOrder") ?? 100),
@@ -1239,6 +1264,8 @@ export async function createFormFieldAction(formData: FormData) {
     });
 
     const optionList = parseOptionsList(parsed.options);
+    const validationRules = parseJsonObject(parsed.validationRules);
+    const conditionalLogic = parseJsonObject(parsed.conditionalLogic);
 
     const supabase = await createSupabaseServerClient();
     const { data: inserted, error } = await supabase
@@ -1250,8 +1277,11 @@ export async function createFormFieldAction(formData: FormData) {
         field_type: parsed.fieldType,
         placeholder: cleanOptional(parsed.placeholder),
         help_text: cleanOptional(parsed.helpText),
+        section_key: parsed.sectionKey,
         binding_source: parsed.bindingSource,
         binding_column: cleanOptional(parsed.bindingColumn),
+        validation_rules: validationRules,
+        conditional_logic: conditionalLogic,
         options: optionList,
         is_required: parsed.isRequired,
         sort_order: parsed.sortOrder,
@@ -1269,7 +1299,7 @@ export async function createFormFieldAction(formData: FormData) {
       targetId: inserted?.id ?? null,
       action: "form_field_created",
       summary: `Formulierveld aangemaakt: ${parsed.label}`,
-      afterState: { ...parsed, options: optionList },
+      afterState: { ...parsed, options: optionList, validationRules, conditionalLogic },
       changedFields: [
         "template_id",
         "field_key",
@@ -1277,8 +1307,11 @@ export async function createFormFieldAction(formData: FormData) {
         "field_type",
         "placeholder",
         "help_text",
+        "section_key",
         "binding_source",
         "binding_column",
+        "validation_rules",
+        "conditional_logic",
         "options",
         "is_required",
         "sort_order",
@@ -1309,8 +1342,11 @@ export async function updateFormFieldAction(formData: FormData) {
       fieldType: String(formData.get("fieldType") ?? "text"),
       placeholder: String(formData.get("placeholder") ?? ""),
       helpText: String(formData.get("helpText") ?? ""),
+      sectionKey: String(formData.get("sectionKey") ?? "general"),
       bindingSource: String(formData.get("bindingSource") ?? "custom"),
       bindingColumn: String(formData.get("bindingColumn") ?? ""),
+      validationRules: String(formData.get("validationRules") ?? ""),
+      conditionalLogic: String(formData.get("conditionalLogic") ?? ""),
       options: String(formData.get("options") ?? ""),
       isRequired: checkboxToBoolean(formData.get("isRequired")),
       sortOrder: Number(formData.get("sortOrder") ?? 100),
@@ -1318,10 +1354,12 @@ export async function updateFormFieldAction(formData: FormData) {
     });
 
     const optionList = parseOptionsList(parsed.options);
+    const validationRules = parseJsonObject(parsed.validationRules);
+    const conditionalLogic = parseJsonObject(parsed.conditionalLogic);
     const supabase = await createSupabaseServerClient();
     const { data: current } = await supabase
       .from("form_template_fields")
-      .select("id, label, field_type, placeholder, help_text, binding_source, binding_column, options, is_required, sort_order, is_active")
+      .select("id, label, field_type, placeholder, help_text, section_key, binding_source, binding_column, validation_rules, conditional_logic, options, is_required, sort_order, is_active")
       .eq("id", parsed.id)
       .single();
 
@@ -1332,8 +1370,11 @@ export async function updateFormFieldAction(formData: FormData) {
         field_type: parsed.fieldType,
         placeholder: cleanOptional(parsed.placeholder),
         help_text: cleanOptional(parsed.helpText),
+        section_key: parsed.sectionKey,
         binding_source: parsed.bindingSource,
         binding_column: cleanOptional(parsed.bindingColumn),
+        validation_rules: validationRules,
+        conditional_logic: conditionalLogic,
         options: optionList,
         is_required: parsed.isRequired,
         sort_order: parsed.sortOrder,
@@ -1351,14 +1392,17 @@ export async function updateFormFieldAction(formData: FormData) {
       action: "form_field_updated",
       summary: `Formulierveld bijgewerkt: ${parsed.label}`,
       beforeState: current ?? null,
-      afterState: { ...parsed, options: optionList },
+      afterState: { ...parsed, options: optionList, validationRules, conditionalLogic },
       changedFields: [
         "label",
         "field_type",
         "placeholder",
         "help_text",
+        "section_key",
         "binding_source",
         "binding_column",
+        "validation_rules",
+        "conditional_logic",
         "options",
         "is_required",
         "sort_order",

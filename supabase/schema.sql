@@ -212,6 +212,7 @@ create table if not exists public.form_templates (
   code text not null unique,
   label text not null,
   description text,
+  template_kind text not null default 'form' check (template_kind in ('form', 'report')),
   report_type_code text references public.report_types(code) on delete set null,
   is_active boolean not null default true,
   is_system boolean not null default false,
@@ -239,10 +240,13 @@ create table if not exists public.form_template_fields (
   ),
   placeholder text,
   help_text text,
+  section_key text not null default 'general',
   binding_source text not null default 'custom' check (
     binding_source in ('custom', 'medical_reports', 'patients', 'patient_cases')
   ),
   binding_column text,
+  validation_rules jsonb not null default '{}'::jsonb,
+  conditional_logic jsonb not null default '{}'::jsonb,
   options jsonb not null default '[]'::jsonb,
   is_required boolean not null default false,
   sort_order integer not null default 100,
@@ -372,8 +376,30 @@ alter table public.form_template_fields
 alter table public.form_template_fields
   add column if not exists binding_column text;
 
+alter table public.form_templates
+  add column if not exists template_kind text not null default 'form';
+
+alter table public.form_template_fields
+  add column if not exists section_key text not null default 'general';
+
+alter table public.form_template_fields
+  add column if not exists validation_rules jsonb not null default '{}'::jsonb;
+
+alter table public.form_template_fields
+  add column if not exists conditional_logic jsonb not null default '{}'::jsonb;
+
 do $$
 begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'form_templates_template_kind_check'
+  ) then
+    alter table public.form_templates
+      add constraint form_templates_template_kind_check
+      check (template_kind in ('form', 'report'));
+  end if;
+
   if not exists (
     select 1
     from pg_constraint

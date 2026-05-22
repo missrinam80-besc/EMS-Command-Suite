@@ -60,6 +60,7 @@ export type ManagedFormTemplate = {
   id: string;
   code: string;
   label: string;
+  templateKind: "form" | "report";
   description: string | null;
   reportTypeCode: string | null;
   isActive: boolean;
@@ -71,6 +72,7 @@ export type ManagedFormTemplate = {
 export type ManagedFormField = {
   id: string;
   templateId: string;
+  sectionKey: string;
   fieldKey: string;
   label: string;
   fieldType:
@@ -87,6 +89,8 @@ export type ManagedFormField = {
   helpText: string | null;
   bindingSource: "custom" | "medical_reports" | "patients" | "patient_cases";
   bindingColumn: string | null;
+  validationRules: Record<string, unknown>;
+  conditionalLogic: Record<string, unknown>;
   options: string[];
   isRequired: boolean;
   sortOrder: number;
@@ -587,7 +591,7 @@ export async function getManagedFormTemplates(): Promise<ManagedFormTemplate[]> 
     await Promise.all([
       supabase
         .from("form_templates")
-        .select("id, code, label, description, report_type_code, is_active, is_system, updated_at")
+        .select("id, code, label, template_kind, description, report_type_code, is_active, is_system, updated_at")
         .order("code", { ascending: true }),
       supabase.from("form_template_fields").select("template_id, is_active"),
     ]);
@@ -607,6 +611,7 @@ export async function getManagedFormTemplates(): Promise<ManagedFormTemplate[]> 
     id: template.id,
     code: template.code,
     label: template.label,
+    templateKind: (template.template_kind ?? "form") as ManagedFormTemplate["templateKind"],
     description: template.description,
     reportTypeCode: template.report_type_code,
     isActive: template.is_active,
@@ -625,7 +630,7 @@ export async function getManagedFormFields(): Promise<ManagedFormField[]> {
   const { data, error } = await supabase
     .from("form_template_fields")
     .select(
-      "id, template_id, field_key, label, field_type, placeholder, help_text, binding_source, binding_column, options, is_required, sort_order, is_active",
+      "id, template_id, section_key, field_key, label, field_type, placeholder, help_text, binding_source, binding_column, validation_rules, conditional_logic, options, is_required, sort_order, is_active",
     )
     .order("sort_order", { ascending: true });
 
@@ -636,6 +641,7 @@ export async function getManagedFormFields(): Promise<ManagedFormField[]> {
   return (data ?? []).map((field) => ({
     id: field.id,
     templateId: field.template_id,
+    sectionKey: field.section_key ?? "general",
     fieldKey: field.field_key,
     label: field.label,
     fieldType: field.field_type as ManagedFormField["fieldType"],
@@ -643,6 +649,14 @@ export async function getManagedFormFields(): Promise<ManagedFormField[]> {
     helpText: field.help_text,
     bindingSource: (field.binding_source ?? "custom") as ManagedFormField["bindingSource"],
     bindingColumn: field.binding_column ?? null,
+    validationRules:
+      field.validation_rules && typeof field.validation_rules === "object"
+        ? (field.validation_rules as Record<string, unknown>)
+        : {},
+    conditionalLogic:
+      field.conditional_logic && typeof field.conditional_logic === "object"
+        ? (field.conditional_logic as Record<string, unknown>)
+        : {},
     options: Array.isArray(field.options)
       ? field.options.filter((entry): entry is string => typeof entry === "string")
       : [],
