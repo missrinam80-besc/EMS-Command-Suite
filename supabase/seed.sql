@@ -216,6 +216,62 @@ set
   is_active = excluded.is_active,
   updated_at = now();
 
+insert into public.handbook_categories (code, label, description, sort_order, is_active)
+values
+  ('triage', 'Triage', 'Richtlijnen voor intake, prioritering en dispatch.', 10, true),
+  ('trauma', 'Trauma', 'Procedures voor trauma- en spoedinterventies.', 20, true),
+  ('medicatie', 'Medicatie', 'Toedieningsrichtlijnen en veiligheidschecks.', 30, true),
+  ('organisatie', 'Organisatie', 'Interne afspraken, overdracht en communicatie.', 40, true)
+on conflict (code) do update
+set
+  label = excluded.label,
+  description = excluded.description,
+  sort_order = excluded.sort_order,
+  is_active = excluded.is_active,
+  updated_at = now();
+
+insert into public.handbook_articles (
+  category_id,
+  title,
+  slug,
+  summary,
+  content,
+  status,
+  sort_order,
+  is_active
+)
+select
+  categories.id,
+  seed.title,
+  seed.slug,
+  seed.summary,
+  seed.content,
+  'published',
+  seed.sort_order,
+  true
+from (
+  values
+    ('triage', 'ABCDE Triage Basis', 'abcde-triage-basis', 'Snelle primaire evaluatie volgens ABCDE.', 'A: Airway vrijmaken en beschermen.\nB: Ademhaling beoordelen en ondersteunen.\nC: Circulatie controleren, bloedingen stelpen.\nD: Neurologische status via AVPU/GCS.\nE: Volledige inspectie en temperatuurbeheer.', 10),
+    ('triage', 'Dispatch Prioriteiten', 'dispatch-prioriteiten', 'Prioriteiten voor uitruk op basis van urgentie.', 'P1: Levensbedreigend, onmiddellijke uitruk.\nP2: Urgent, snelle respons met monitoring.\nP3: Niet-urgent, geplande afhandeling.\nDocumenteer altijd motivatie van prioriteit.', 20),
+    ('trauma', 'Polytrauma Opvang', 'polytrauma-opvang', 'Stappenplan voor aankomst van polytrauma.', 'Voorbereiding trauma bay.\nRolverdeling teamlead/airway/procedure/scribe.\nMassive transfusion protocol indien indicatie.\nFAST + secundaire survey.\nEscalatie naar OK/IC volgens bevindingen.', 30),
+    ('trauma', 'Brandwonden Eerste Zorg', 'brandwonden-eerste-zorg', 'Koelen, classificeren en doorverwijzen.', 'Koel met lauw water gedurende 20 minuten.\nVerwijder knellende items.\nBereken TBSA via rule of nines.\nBescherm wond steriel.\nEscaleer bij inhalatieletsel of >10% TBSA.', 40),
+    ('medicatie', 'Medicatieveiligheid 5 Juiste', 'medicatieveiligheid-5-juiste', 'Controleprocedure voor veilige toediening.', 'Juiste patient.\nJuiste medicatie.\nJuiste dosis.\nJuiste tijd.\nJuiste toedieningsweg.\nRegistreer onmiddellijk in het dossier.', 50),
+    ('medicatie', 'Analgesie Ladder EMS', 'analgesie-ladder-ems', 'Gefaseerde pijnbehandeling in prehospitale setting.', 'Stap 1: Paracetamol/NSAID indien passend.\nStap 2: Zwakke opioiden.\nStap 3: Sterke opioiden met monitoring.\nEvalueer pijnscore voor en na toediening.', 60),
+    ('organisatie', 'Handover SBAR', 'handover-sbar', 'Uniforme overdracht tussen teams.', 'S: Situation\nB: Background\nA: Assessment\nR: Recommendation\nGebruik korte, verifieerbare kernpunten en herhaal kritieke info.', 70),
+    ('organisatie', 'Melding Incidenten', 'melding-incidenten', 'Procedure voor veiligheidsincidenten en near misses.', 'Meld binnen 24 uur via intern formulier.\nBeschrijf feiten, geen interpretaties.\nKoppel betrokken casus/rapport.\nTeamlead valideert en start follow-up.', 80)
+) as seed(category_code, title, slug, summary, content, sort_order)
+join public.handbook_categories categories on categories.code = seed.category_code
+on conflict (slug) do update
+set
+  category_id = excluded.category_id,
+  title = excluded.title,
+  summary = excluded.summary,
+  content = excluded.content,
+  status = excluded.status,
+  sort_order = excluded.sort_order,
+  is_active = excluded.is_active,
+  updated_at = now();
+
 insert into public.medical_catalog_injury_types (code, label, sort_order, is_active)
 values
   ('schaafwonde', 'Schaafwonde', 10, true),
