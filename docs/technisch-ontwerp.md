@@ -14,7 +14,7 @@ Bouw een zelfstandige EMS webapp voor browsergebruik, zonder directe gameplay-ko
 
 ## Kernmodules v1
 
-- patiëntendossiers
+- patientendossiers
 - traumarapport
 - opnamerapport
 - behandeling
@@ -35,6 +35,7 @@ Bouw een zelfstandige EMS webapp voor browsergebruik, zonder directe gameplay-ko
 - Next.js App Router
 - server-rendered shell waar nuttig
 - client forms voor rapporten en beheerschermen
+- runtime template rendering voor trauma/opname rapporten via centrale builder
 
 ### Backend
 
@@ -85,16 +86,16 @@ Specialisaties geven dus geen login, maar wel extra domeintoegang.
 
 ## Identiteitsmodel
 
-Technisch wordt elke gebruiker geïdentificeerd via `auth.users.id`.
+Technisch wordt elke gebruiker geidentificeerd via `auth.users.id`.
 
 Zakelijk worden twee identiteiten onderscheiden:
 
 - `profiles.citizenid`
   De RP-identiteit van een EMS-medewerker
 - `patients.citizenid`
-  De RP-identiteit van een patiënt/burger
+  De RP-identiteit van een patient/burger
 
-Deze scheiding voorkomt dat personeelstabellen en patiëntendossiers door elkaar lopen.
+Deze scheiding voorkomt dat personeelstabellen en patientendossiers door elkaar lopen.
 
 ## RLS-strategie
 
@@ -106,9 +107,9 @@ RLS wordt opgebouwd rond helperfuncties zoals:
 
 Voorbeeldregels:
 
-- alleen users met `patients.read` zien patiënten
+- alleen users met `patients.read` zien patienten
 - alleen users met `staff.write` wijzigen personeel
-- evaluaties alleen zichtbaar voor evaluator, geëvalueerde en leiding
+- evaluaties alleen zichtbaar voor evaluator, geevalueerde en leiding
 - richtlijnen kunnen publiek binnen EMS zijn, of beperkt per specialisatie
 
 ## Audit logging
@@ -122,10 +123,28 @@ Elke gevoelige write-operatie moet een auditrecord krijgen met:
 - metadata jsonb
 - timestamp
 
+## Runtime template-engine (actuele uitbreiding)
+
+Voor rapporttypes (`trauma`, `opname`) wordt de formulierstructuur dynamisch opgebouwd:
+
+1. actieve report-template ophalen uit `form_templates`
+2. actieve velden ophalen uit `form_template_fields`
+3. conditionele zichtbaarheid evalueren in UI
+4. server-side conditionele validatie forceren
+5. opslag van dynamische velden in `medical_reports.content`
+
+Conditionele operators die ondersteund worden:
+
+- `equals`, `not_equals`
+- `contains`, `not_contains`
+- `truthy`, `falsy`
+- `gt`, `lt`
+- `in`, `not_in`
+
 ## Niet in v1
 
 - gameplay-sync met Wasabi of OP MDT
 - live dispatch
 - realtime statusborden
-- publieke patiëntportal
+- publieke patientportal
 - meertaligheid

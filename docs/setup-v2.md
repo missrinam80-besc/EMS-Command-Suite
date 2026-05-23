@@ -45,3 +45,15 @@ NEXT_PUBLIC_ENABLE_DEMO_AUTH=false
 - `/personeel`
 - `/organisatie`
 - `/handboek`
+
+## Testcommando's
+
+Gebruik deze standaardset voor regressiecontrole:
+
+1. `npm run lint`
+2. `npm run build`
+3. `npm run test:runtime`
+
+Optioneel voor browserflow (indien Playwright browser runtime toelaat):
+
+4. `npm run test:e2e`

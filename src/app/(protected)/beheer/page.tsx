@@ -141,6 +141,32 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
         </div>
       </section>
 
+      <section className="rounded-[1.5rem] border border-[var(--color-line)] bg-[var(--color-surface)] p-6">
+        <p className="text-sm uppercase tracking-[0.16em] text-[var(--color-muted)]">
+          Export en rapportage
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold text-[var(--color-ink)]">
+          Data exports
+        </h2>
+        <p className="mt-2 text-sm text-[var(--color-muted)]">
+          Exporteer auditlog en medische rapportmetadata als CSV voor governance en rapportage.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Link
+            href="/api/exports/audit"
+            className="inline-flex rounded-full border border-[var(--color-line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-soft)]"
+          >
+            Exporteer auditlog (CSV)
+          </Link>
+          <Link
+            href="/api/exports/reports"
+            className="inline-flex rounded-full border border-[var(--color-line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-soft)]"
+          >
+            Exporteer rapporten (CSV)
+          </Link>
+        </div>
+      </section>
+
       <AdminUserManagement
         users={users}
         permissions={permissions}

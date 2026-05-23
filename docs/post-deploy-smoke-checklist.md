@@ -1,6 +1,9 @@
-# Post-Deploy Smoke Checklist
+ï»¿# Post-Deploy Smoke Checklist
 
 Doel: na elke deploy naar `main` binnen 10-15 minuten bevestigen dat login, kernmodules, rapportflows en autorisatie nog werken.
+
+Referentie runtime operators/flow:
+- `docs/runtime-builder-operators-and-flows.md`
 
 ## Scope
 
@@ -33,7 +36,7 @@ Gebruik een account met voldoende rechten (`reports.read`, `reports.create`, `re
 - Verwacht: alle pagina's laden zonder 403 voor bevoegde rol.
 
 3. Trauma flow werkt
-- Open patiëntdossier.
+- Open patientdossier.
 - Maak nieuw traumarapport.
 - Bewerk hetzelfde rapport.
 - Open detail.
@@ -80,7 +83,7 @@ Kopieer en vul in per deploy:
 - Opmerkingen:
 - Blokkerend voor release? JA/NEE
 
-## Uitgevoerde run (2026-05-23)
+## Uitgevoerde run (2026-05-23, sandbox hardening)
 
 Context:
 - Lokaal/sandbox hardening-run voor releasevoorbereiding.
@@ -94,4 +97,19 @@ Uitgevoerd:
 
 Conclusie:
 - Code-level release-hardening is groen.
-- Nog vereist buiten sandbox: handmatige production smoke-run volgens checklist (stappen 1-7) na deploy.
+
+## Production run (2026-05-23, afgerond)
+
+- Datum/tijd: 2026-05-23
+- Commit SHA: `62a1721`
+- Vercel deployment URL: `https://ems-command-suite.vercel.app/`
+- Uitvoerder: beheeraccount (live)
+- 1 Login: PASS
+- 2 Moduletoegang: PASS
+- 3 Trauma flow: PASS
+- 4 Opname flow: PASS
+- 5 Runtime conditionals: PASS
+- 6 Audit logging: PASS
+- 7 Logout: PASS
+- Opmerkingen: eerdere `NEXT_REDIRECT` issue opgelost in deze deploylijn.
+- Blokkerend voor release? NEE

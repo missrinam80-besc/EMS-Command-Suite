@@ -45,7 +45,22 @@
 
 ## Fase 6: governance
 
-- [ ] audit logging
-- [ ] admin-overzicht permissies
-- [ ] seed scripts voor basisdata
-- [ ] export- en rapportagepaden
+- [x] audit logging
+- [x] admin-overzicht permissies
+- [x] seed scripts voor basisdata
+- [x] export- en rapportagepaden
+
+## Fase-overgang (status 2026-05-23)
+
+Afgerond in deze iteratie:
+
+- runtime builder voor trauma/opname (nieuw, bewerken, detail)
+- conditionele operatoren end-to-end (`equals`, `not_equals`, `contains`, `not_contains`, `truthy`, `falsy`, `gt`, `lt`, `in`, `not_in`)
+- server-side mapping en validatie-hardening
+- `NEXT_REDIRECT` handling gefixt in rapport server actions
+- runtime regressietests (`npm run test:runtime`)
+- post-deploy smoke-checklist vastgelegd
+
+Nog open voor formele fase-overgang:
+
+- 1 production smoke-run volledig invullen en afronden in `docs/post-deploy-smoke-checklist.md`
