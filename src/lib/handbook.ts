@@ -32,6 +32,18 @@ export type HandbookVisibilityReference = {
   name: string;
 };
 
+export function applyHandbookStatusGuardrails<T extends { status: "draft" | "published" | "archived"; isActive: boolean }>(
+  input: T,
+): T {
+  if (input.status === "archived") {
+    return { ...input, isActive: false };
+  }
+  if (input.status === "published") {
+    return { ...input, isActive: true };
+  }
+  return input;
+}
+
 async function getViewerContext(profileId?: string) {
   if (!profileId) {
     return { rankId: null as string | null, specializationIds: [] as string[] };
@@ -49,7 +61,7 @@ async function getViewerContext(profileId?: string) {
   };
 }
 
-function isArticleVisibleForViewer(
+export function isHandbookArticleVisibleForViewer(
   article: HandbookArticle,
   viewer: { rankId: string | null; specializationIds: string[] },
 ) {
@@ -134,7 +146,7 @@ export async function getHandbookArticles(params?: {
   }
 
   const viewer = await getViewerContext(params?.viewerProfileId);
-  return mapped.filter((article) => isArticleVisibleForViewer(article, viewer));
+  return mapped.filter((article) => isHandbookArticleVisibleForViewer(article, viewer));
 }
 
 export async function getHandbookArticleBySlug(
@@ -176,7 +188,7 @@ export async function getHandbookArticleBySlug(
     return mapped;
   }
   const viewer = await getViewerContext(params?.viewerProfileId);
-  return isArticleVisibleForViewer(mapped, viewer) ? mapped : null;
+  return isHandbookArticleVisibleForViewer(mapped, viewer) ? mapped : null;
 }
 
 export async function getHandbookVisibilityReferences(): Promise<{

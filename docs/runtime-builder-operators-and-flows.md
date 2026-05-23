@@ -69,3 +69,25 @@ Bevat:
 - builder conditional operator JSON-update flow
 
 Let op: in sandbox-omgevingen kan browser-launch geblokkeerd zijn (`spawn EPERM`).
+
+## Handboek flow (fase 5)
+
+Doel: richtlijnen centraal beheren met publicatiestatus en gerichte zichtbaarheid.
+
+1. Beheer maakt/ordent categorieen in `handbook_categories`.
+2. Beheer maakt artikels in `handbook_articles` met markdown-achtige inhoud.
+3. Status-guardrails worden server-side afgedwongen:
+   - `published` => altijd `is_active=true`
+   - `archived` => altijd `is_active=false`
+4. Zichtbaarheid wordt bepaald door:
+   - geen restricties => zichtbaar voor elke gebruiker met handboektoegang
+   - rank/specialisatie restricties => enkel zichtbaar bij match op minstens een restrictie
+5. Detailpagina rendert inhoud via veilige markdown-rendering (escaped HTML + beperkte formatting).
+
+### Handboek regressietests
+
+`npm run test:runtime`
+
+Dekt nu ook:
+- `applyHandbookStatusGuardrails` (draft/published/archived gedrag)
+- `isHandbookArticleVisibleForViewer` (rank/specialisatie filtering en status/actief gating)

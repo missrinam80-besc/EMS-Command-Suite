@@ -38,10 +38,10 @@
 
 ## Fase 5: handboek
 
-- [ ] richtlijnencategorieen
-- [ ] rich text richtlijnpaginas
-- [ ] publicatiestatus draft/published/archived
-- [ ] zichtbaarheid per rank of specialisatie
+- [x] richtlijnencategorieen
+- [x] rich text richtlijnpaginas
+- [x] publicatiestatus draft/published/archived
+- [x] zichtbaarheid per rank of specialisatie
 
 ## Fase 6: governance
 
@@ -59,8 +59,9 @@ Afgerond in deze iteratie:
 - server-side mapping en validatie-hardening
 - `NEXT_REDIRECT` handling gefixt in rapport server actions
 - runtime regressietests (`npm run test:runtime`)
-- post-deploy smoke-checklist vastgelegd
+- post-deploy smoke-checklist vastgelegd en op productie ingevuld
+- handboek fase 5 volledig afgewerkt (categoriebeheer, rich text, statusbeheer, zichtbaarheid op rank/specialisatie)
 
 Nog open voor formele fase-overgang:
 
-- 1 production smoke-run volledig invullen en afronden in `docs/post-deploy-smoke-checklist.md`
+- geen open punten in fase 5; klaar voor volgende faseplanning

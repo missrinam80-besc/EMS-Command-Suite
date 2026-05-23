@@ -12,6 +12,7 @@ import {
   createHandbookCategoryAction,
   deleteHandbookCategoryAction,
   deleteHandbookArticleAction,
+  transitionHandbookArticleStatusAction,
   updateHandbookCategoryAction,
   updateHandbookArticleAction,
 } from "./actions";
@@ -120,13 +121,22 @@ export default async function HandboekPage({ searchParams }: HandboekPageProps) 
               <input name="title" placeholder="Titel" className="w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm" required />
               <input name="slug" placeholder="slug" className="w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm" required />
               <textarea name="summary" placeholder="Korte samenvatting" className="h-20 w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm" />
-              <textarea name="content" placeholder="Volledige inhoud" className="h-36 w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm" required />
+              <textarea name="content" placeholder="Volledige inhoud (Markdown rich text)" className="h-36 w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm" required />
+              <p className="text-xs text-[var(--color-muted)]">
+                Rich text via Markdown: <code># titel</code>, <code>## subtitel</code>, <code>- lijst</code>, <code>**vet**</code>, <code>*italic*</code>, <code>`code`</code>.
+              </p>
               <div className="grid gap-3 md:grid-cols-2">
                 <select name="status" defaultValue="draft" className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm"><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select>
                 <input type="number" name="sortOrder" defaultValue={100} className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm" />
               </div>
               <details className="rounded-xl border border-[var(--color-line)] p-3">
                 <summary className="cursor-pointer text-sm font-semibold text-[var(--color-ink)]">Zichtbaarheid filteren (optioneel)</summary>
+                <select name="visibilityPreset" defaultValue="custom" className="mt-3 w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm">
+                  <option value="custom">Custom selectie</option>
+                  <option value="everyone">Iedereen</option>
+                  <option value="ranks_only">Alleen ranks</option>
+                  <option value="specializations_only">Alleen specialisaties</option>
+                </select>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <div className="max-h-32 space-y-2 overflow-auto">{visibility.ranks.map((rank) => <label key={rank.id} className="flex items-center gap-2 text-sm"><input type="checkbox" name="visibleRankIds" value={rank.id} />{rank.name}</label>)}</div>
                   <div className="max-h-32 space-y-2 overflow-auto">{visibility.specializations.map((item) => <label key={item.id} className="flex items-center gap-2 text-sm"><input type="checkbox" name="visibleSpecializationIds" value={item.id} />{item.name}</label>)}</div>
@@ -146,7 +156,26 @@ export default async function HandboekPage({ searchParams }: HandboekPageProps) 
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-semibold text-[var(--color-ink)]">{article.title}</h2>
-                  <p className="text-sm text-[var(--color-muted)]">{article.categoryLabel ?? "Ongekende categorie"} · {article.status}</p>
+                  <p className="text-sm text-[var(--color-muted)]">{article.categoryLabel ?? "Ongekende categorie"}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                      article.status === "published"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : article.status === "archived"
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-slate-100 text-slate-800"
+                    }`}>
+                      {article.status}
+                    </span>
+                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${article.isActive ? "bg-sky-100 text-sky-800" : "bg-rose-100 text-rose-800"}`}>
+                      {article.isActive ? "actief" : "inactief"}
+                    </span>
+                    {article.visibleRankIds.length > 0 || article.visibleSpecializationIds.length > 0 ? (
+                      <span className="inline-flex rounded-full bg-violet-100 px-2 py-1 text-xs font-semibold text-violet-800">
+                        restricted visibility
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
                 <p className="text-xs text-[var(--color-muted)]">{new Date(article.updatedAt).toLocaleString("nl-BE")}</p>
               </div>
@@ -162,12 +191,21 @@ export default async function HandboekPage({ searchParams }: HandboekPageProps) 
                   <input name="slug" defaultValue={article.slug} className="w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm" />
                   <textarea name="summary" defaultValue={article.summary ?? ""} className="h-20 w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm" />
                   <textarea name="content" defaultValue={article.content} className="h-32 w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm" />
+                  <p className="text-xs text-[var(--color-muted)]">
+                    Markdown rich text ondersteund: headings, lijsten, vet/italic en inline code.
+                  </p>
                   <div className="grid grid-cols-2 gap-2">
                     <select name="status" defaultValue={article.status} className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm"><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select>
                     <input type="number" name="sortOrder" defaultValue={article.sortOrder} className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm" />
                   </div>
                   <details className="rounded-xl border border-[var(--color-line)] p-3">
                     <summary className="cursor-pointer text-sm font-semibold text-[var(--color-ink)]">Zichtbaarheid</summary>
+                    <select name="visibilityPreset" defaultValue="custom" className="mt-3 w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm">
+                      <option value="custom">Custom selectie</option>
+                      <option value="everyone">Iedereen</option>
+                      <option value="ranks_only">Alleen ranks</option>
+                      <option value="specializations_only">Alleen specialisaties</option>
+                    </select>
                     <div className="mt-3 grid gap-3 md:grid-cols-2">
                       <div className="max-h-28 space-y-1 overflow-auto">{visibility.ranks.map((rank) => <label key={`${article.id}-rank-${rank.id}`} className="flex items-center gap-2 text-sm"><input type="checkbox" name="visibleRankIds" value={rank.id} defaultChecked={article.visibleRankIds.includes(rank.id)} />{rank.name}</label>)}</div>
                       <div className="max-h-28 space-y-1 overflow-auto">{visibility.specializations.map((item) => <label key={`${article.id}-spec-${item.id}`} className="flex items-center gap-2 text-sm"><input type="checkbox" name="visibleSpecializationIds" value={item.id} defaultChecked={article.visibleSpecializationIds.includes(item.id)} />{item.name}</label>)}</div>
@@ -176,7 +214,29 @@ export default async function HandboekPage({ searchParams }: HandboekPageProps) 
                   <label className="flex items-center gap-2 text-sm text-[var(--color-muted)]"><input type="checkbox" name="isActive" defaultChecked={article.isActive} />Actief</label>
                   <button type="submit" className="rounded-full bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)]">Update</button>
                 </form>
-                <form action={deleteHandbookArticleAction} className="self-start"><input type="hidden" name="id" value={article.id} /><button type="submit" className="rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700">Verwijderen</button></form>
+                <div className="self-start space-y-3">
+                  <form action={transitionHandbookArticleStatusAction} className="rounded-xl border border-[var(--color-line)] p-3">
+                    <input type="hidden" name="id" value={article.id} />
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-muted)]">
+                      Snelle status
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button type="submit" name="status" value="draft" className="rounded-full border border-[var(--color-line)] px-3 py-1 text-xs font-semibold">
+                        Zet op draft
+                      </button>
+                      <button type="submit" name="status" value="published" className="rounded-full border border-emerald-300 px-3 py-1 text-xs font-semibold text-emerald-700">
+                        Publiceer
+                      </button>
+                      <button type="submit" name="status" value="archived" className="rounded-full border border-amber-300 px-3 py-1 text-xs font-semibold text-amber-700">
+                        Archiveer
+                      </button>
+                    </div>
+                  </form>
+                  <form action={deleteHandbookArticleAction}>
+                    <input type="hidden" name="id" value={article.id} />
+                    <button type="submit" className="rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700">Verwijderen</button>
+                  </form>
+                </div>
               </div>
             ) : null}
           </details>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { hasPermission, requireAnyPermission } from "@/lib/auth";
+import { renderHandbookMarkdown } from "@/lib/handbook-richtext";
 import { getHandbookArticleBySlug } from "@/lib/handbook";
 
 type HandbookArticlePageProps = {
@@ -15,6 +16,7 @@ export default async function HandbookArticlePage({ params }: HandbookArticlePag
     viewerProfileId: session.userId,
   });
   if (!article) notFound();
+  const renderedContent = renderHandbookMarkdown(article.content);
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-8 md:px-10">
@@ -38,9 +40,10 @@ export default async function HandbookArticlePage({ params }: HandbookArticlePag
           {article.summary}
         </section>
       ) : null}
-      <article className="rounded-[1.25rem] border border-[var(--color-line)] bg-[var(--color-surface)] p-6 text-sm leading-7 whitespace-pre-wrap text-[var(--color-ink)]">
-        {article.content}
-      </article>
+      <article
+        className="rounded-[1.25rem] border border-[var(--color-line)] bg-[var(--color-surface)] p-6 text-sm leading-7 text-[var(--color-ink)]"
+        dangerouslySetInnerHTML={{ __html: renderedContent }}
+      />
     </main>
   );
 }

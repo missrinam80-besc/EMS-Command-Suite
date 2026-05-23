@@ -5,6 +5,7 @@ import { z } from "zod";
 import { writeAuditLog } from "@/lib/audit";
 import { requirePermission } from "@/lib/auth";
 import { buildFeedbackUrl } from "@/lib/feedback";
+import { applyHandbookStatusGuardrails } from "@/lib/handbook";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
 const categorySchema = z.object({
@@ -34,6 +35,7 @@ const articleCreateSchema = z.object({
   isActive: z.boolean().default(true),
   visibleRankIds: z.array(z.string().trim()).default([]),
   visibleSpecializationIds: z.array(z.string().trim()).default([]),
+  visibilityPreset: z.enum(["custom", "everyone", "ranks_only", "specializations_only"]).default("custom"),
 });
 
 const articleUpdateSchema = articleCreateSchema.extend({
@@ -42,6 +44,11 @@ const articleUpdateSchema = articleCreateSchema.extend({
 
 const articleDeleteSchema = z.object({
   id: z.string().trim().min(1, "Artikel ontbreekt."),
+});
+
+const articleStatusTransitionSchema = z.object({
+  id: z.string().trim().min(1, "Artikel ontbreekt."),
+  status: z.enum(["draft", "published", "archived"]),
 });
 
 function checkboxToBoolean(value: FormDataEntryValue | null) {
@@ -61,6 +68,29 @@ function normalizeSlug(input: string) {
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+function applyVisibilityPreset<T extends {
+  visibleRankIds: string[];
+  visibleSpecializationIds: string[];
+  visibilityPreset: "custom" | "everyone" | "ranks_only" | "specializations_only";
+}>(input: T): T {
+  if (input.visibilityPreset === "everyone") {
+    return { ...input, visibleRankIds: [], visibleSpecializationIds: [] };
+  }
+  if (input.visibilityPreset === "ranks_only") {
+    if (input.visibleRankIds.length === 0) {
+      throw new Error("Selecteer minstens één rank voor preset 'ranks_only'.");
+    }
+    return { ...input, visibleSpecializationIds: [] };
+  }
+  if (input.visibilityPreset === "specializations_only") {
+    if (input.visibleSpecializationIds.length === 0) {
+      throw new Error("Selecteer minstens één specialisatie voor preset 'specializations_only'.");
+    }
+    return { ...input, visibleRankIds: [] };
+  }
+  return input;
 }
 
 export async function createHandbookCategoryAction(formData: FormData) {
@@ -200,7 +230,7 @@ export async function deleteHandbookCategoryAction(formData: FormData) {
 export async function createHandbookArticleAction(formData: FormData) {
   try {
     const session = await requirePermission("handbook.manage");
-    const parsed = articleCreateSchema.parse({
+    const rawParsed = articleCreateSchema.parse({
       categoryId: String(formData.get("categoryId") ?? ""),
       title: String(formData.get("title") ?? ""),
       slug: normalizeSlug(String(formData.get("slug") ?? "")),
@@ -211,7 +241,9 @@ export async function createHandbookArticleAction(formData: FormData) {
       isActive: checkboxToBoolean(formData.get("isActive")),
       visibleRankIds: formData.getAll("visibleRankIds").map(String),
       visibleSpecializationIds: formData.getAll("visibleSpecializationIds").map(String),
+      visibilityPreset: String(formData.get("visibilityPreset") ?? "custom"),
     });
+    const parsed = applyHandbookStatusGuardrails(applyVisibilityPreset(rawParsed));
     const supabase = await createSupabaseServerClient();
     const { data: inserted, error } = await supabase
       .from("handbook_articles")
@@ -266,7 +298,7 @@ export async function createHandbookArticleAction(formData: FormData) {
 export async function updateHandbookArticleAction(formData: FormData) {
   try {
     const session = await requirePermission("handbook.manage");
-    const parsed = articleUpdateSchema.parse({
+    const rawParsed = articleUpdateSchema.parse({
       id: String(formData.get("id") ?? ""),
       categoryId: String(formData.get("categoryId") ?? ""),
       title: String(formData.get("title") ?? ""),
@@ -278,7 +310,9 @@ export async function updateHandbookArticleAction(formData: FormData) {
       isActive: checkboxToBoolean(formData.get("isActive")),
       visibleRankIds: formData.getAll("visibleRankIds").map(String),
       visibleSpecializationIds: formData.getAll("visibleSpecializationIds").map(String),
+      visibilityPreset: String(formData.get("visibilityPreset") ?? "custom"),
     });
+    const parsed = applyHandbookStatusGuardrails(applyVisibilityPreset(rawParsed));
     const supabase = await createSupabaseServerClient();
     const { data: current } = await supabase
       .from("handbook_articles")
@@ -362,6 +396,58 @@ export async function deleteHandbookArticleAction(formData: FormData) {
         "/handboek",
         "error",
         error instanceof Error ? error.message : "Artikel kon niet worden verwijderd.",
+      ),
+    );
+  }
+}
+
+export async function transitionHandbookArticleStatusAction(formData: FormData) {
+  try {
+    const session = await requirePermission("handbook.manage");
+    const parsed = articleStatusTransitionSchema.parse({
+      id: String(formData.get("id") ?? ""),
+      status: String(formData.get("status") ?? "draft"),
+    });
+    const supabase = await createSupabaseServerClient();
+    const { data: current, error: currentError } = await supabase
+      .from("handbook_articles")
+      .select("id, title, status, is_active")
+      .eq("id", parsed.id)
+      .single();
+    if (currentError || !current) {
+      throw new Error("Artikel niet gevonden.");
+    }
+
+    const nextState = applyHandbookStatusGuardrails({
+      status: parsed.status,
+      isActive: current.is_active,
+    });
+    const { error } = await supabase
+      .from("handbook_articles")
+      .update({
+        status: nextState.status,
+        is_active: nextState.isActive,
+      })
+      .eq("id", parsed.id);
+    if (error) throw new Error(error.message);
+
+    await writeAuditLog(supabase, {
+      targetType: "handbook_article",
+      targetId: parsed.id,
+      action: "handbook_article_status_updated",
+      summary: `Status aangepast voor handboekartikel: ${current.title}`,
+      beforeState: current,
+      afterState: { status: nextState.status, isActive: nextState.isActive },
+      changedFields: ["status", "is_active"],
+      context: { admin_area: "handbook", updated_by: session.userId },
+    });
+    redirect(buildFeedbackUrl("/handboek", "success", "Artikelstatus bijgewerkt."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/handboek",
+        "error",
+        error instanceof Error ? error.message : "Artikelstatus kon niet worden bijgewerkt.",
       ),
     );
   }
