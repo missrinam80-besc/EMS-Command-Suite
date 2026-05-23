@@ -32,6 +32,40 @@ export type HandbookVisibilityReference = {
   name: string;
 };
 
+async function getViewerContext(profileId?: string) {
+  if (!profileId) {
+    return { rankId: null as string | null, specializationIds: [] as string[] };
+  }
+  const supabase = await createSupabaseServerClient();
+  const [{ data: profile }, { data: specializations }] = await Promise.all([
+    supabase.from("profiles").select("rank_id").eq("id", profileId).maybeSingle(),
+    supabase.from("profile_specializations").select("specialization_id").eq("profile_id", profileId),
+  ]);
+  return {
+    rankId: profile?.rank_id ?? null,
+    specializationIds: (specializations ?? [])
+      .map((item) => item.specialization_id)
+      .filter((entry): entry is string => Boolean(entry)),
+  };
+}
+
+function isArticleVisibleForViewer(
+  article: HandbookArticle,
+  viewer: { rankId: string | null; specializationIds: string[] },
+) {
+  if (!article.isActive || article.status !== "published") {
+    return false;
+  }
+  const hasRankRestriction = article.visibleRankIds.length > 0;
+  const hasSpecRestriction = article.visibleSpecializationIds.length > 0;
+  if (!hasRankRestriction && !hasSpecRestriction) {
+    return true;
+  }
+  const rankMatch = viewer.rankId ? article.visibleRankIds.includes(viewer.rankId) : false;
+  const specMatch = viewer.specializationIds.some((id) => article.visibleSpecializationIds.includes(id));
+  return rankMatch || specMatch;
+}
+
 export async function getHandbookCategories(): Promise<HandbookCategory[]> {
   if (shouldUseDemoData() || !hasSupabaseEnv()) return [];
   const supabase = await createSupabaseServerClient();
@@ -54,6 +88,8 @@ export async function getHandbookArticles(params?: {
   query?: string;
   categoryId?: string;
   status?: "draft" | "published" | "archived" | "all";
+  includeRestricted?: boolean;
+  viewerProfileId?: string;
 }): Promise<HandbookArticle[]> {
   if (shouldUseDemoData() || !hasSupabaseEnv()) return [];
   const supabase = await createSupabaseServerClient();
@@ -71,7 +107,7 @@ export async function getHandbookArticles(params?: {
   }
   const { data, error } = await queryBuilder;
   if (error) return [];
-  return (data ?? []).map((item) => ({
+  const mapped = (data ?? []).map((item) => ({
     id: item.id,
     categoryId: item.category_id,
     title: item.title,
@@ -92,9 +128,19 @@ export async function getHandbookArticles(params?: {
       ? item.handbook_categories[0]?.label ?? null
       : (item.handbook_categories as { label?: string } | null)?.label ?? null,
   }));
+
+  if (params?.includeRestricted) {
+    return mapped;
+  }
+
+  const viewer = await getViewerContext(params?.viewerProfileId);
+  return mapped.filter((article) => isArticleVisibleForViewer(article, viewer));
 }
 
-export async function getHandbookArticleBySlug(slug: string): Promise<HandbookArticle | null> {
+export async function getHandbookArticleBySlug(
+  slug: string,
+  params?: { includeRestricted?: boolean; viewerProfileId?: string },
+): Promise<HandbookArticle | null> {
   if (shouldUseDemoData() || !hasSupabaseEnv()) return null;
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
@@ -105,7 +151,7 @@ export async function getHandbookArticleBySlug(slug: string): Promise<HandbookAr
     .eq("slug", slug)
     .maybeSingle();
   if (error || !data) return null;
-  return {
+  const mapped: HandbookArticle = {
     id: data.id,
     categoryId: data.category_id,
     title: data.title,
@@ -126,6 +172,11 @@ export async function getHandbookArticleBySlug(slug: string): Promise<HandbookAr
       ? data.handbook_categories[0]?.label ?? null
       : (data.handbook_categories as { label?: string } | null)?.label ?? null,
   };
+  if (params?.includeRestricted) {
+    return mapped;
+  }
+  const viewer = await getViewerContext(params?.viewerProfileId);
+  return isArticleVisibleForViewer(mapped, viewer) ? mapped : null;
 }
 
 export async function getHandbookVisibilityReferences(): Promise<{

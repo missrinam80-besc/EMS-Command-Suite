@@ -10,7 +10,9 @@ import {
 import {
   createHandbookArticleAction,
   createHandbookCategoryAction,
+  deleteHandbookCategoryAction,
   deleteHandbookArticleAction,
+  updateHandbookCategoryAction,
   updateHandbookArticleAction,
 } from "./actions";
 
@@ -36,6 +38,8 @@ export default async function HandboekPage({ searchParams }: HandboekPageProps) 
       query: params.q?.trim() || undefined,
       categoryId: params.category || undefined,
       status: canManage ? params.status ?? "all" : "published",
+      includeRestricted: canManage,
+      viewerProfileId: session.userId,
     }),
     getHandbookVisibilityReferences(),
   ]);
@@ -82,6 +86,28 @@ export default async function HandboekPage({ searchParams }: HandboekPageProps) 
               <label className="flex items-center gap-2 text-sm text-[var(--color-muted)]"><input type="checkbox" name="isActive" defaultChecked />Actief</label>
               <button type="submit" className="rounded-full bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)]">Categorie opslaan</button>
             </form>
+
+            <div className="mt-5 space-y-3">
+              {categories.map((category) => (
+                <form key={category.id} action={updateHandbookCategoryAction} className="rounded-xl border border-[var(--color-line)] bg-white p-3">
+                  <input type="hidden" name="id" value={category.id} />
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <input name="code" defaultValue={category.code} className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm" />
+                    <input name="label" defaultValue={category.label} className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm" />
+                  </div>
+                  <textarea name="description" defaultValue={category.description ?? ""} className="mt-2 h-20 w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm" />
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <input type="number" name="sortOrder" defaultValue={category.sortOrder} className="w-28 rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm" />
+                    <label className="flex items-center gap-2 text-sm text-[var(--color-muted)]">
+                      <input type="checkbox" name="isActive" defaultChecked={category.isActive} />
+                      Actief
+                    </label>
+                    <button type="submit" className="rounded-full border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)]">Update</button>
+                    <button formAction={deleteHandbookCategoryAction} className="rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700">Verwijderen</button>
+                  </div>
+                </form>
+              ))}
+            </div>
           </article>
 
           <article className="rounded-[1.5rem] border border-[var(--color-line)] bg-[var(--color-surface)] p-6">

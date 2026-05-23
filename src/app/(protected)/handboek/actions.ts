@@ -15,6 +15,14 @@ const categorySchema = z.object({
   isActive: z.boolean().default(true),
 });
 
+const categoryUpdateSchema = categorySchema.extend({
+  id: z.string().trim().min(1, "Categorie ontbreekt."),
+});
+
+const categoryDeleteSchema = z.object({
+  id: z.string().trim().min(1, "Categorie ontbreekt."),
+});
+
 const articleCreateSchema = z.object({
   categoryId: z.string().trim().min(1, "Categorie is verplicht."),
   title: z.string().trim().min(3, "Titel is verplicht."),
@@ -94,6 +102,96 @@ export async function createHandbookCategoryAction(formData: FormData) {
         "/handboek",
         "error",
         error instanceof Error ? error.message : "Categorie kon niet worden aangemaakt.",
+      ),
+    );
+  }
+}
+
+export async function updateHandbookCategoryAction(formData: FormData) {
+  try {
+    const session = await requirePermission("handbook.manage");
+    const parsed = categoryUpdateSchema.parse({
+      id: String(formData.get("id") ?? ""),
+      code: String(formData.get("code") ?? ""),
+      label: String(formData.get("label") ?? ""),
+      description: String(formData.get("description") ?? ""),
+      sortOrder: Number(formData.get("sortOrder") ?? 100),
+      isActive: checkboxToBoolean(formData.get("isActive")),
+    });
+    const supabase = await createSupabaseServerClient();
+    const { data: current } = await supabase
+      .from("handbook_categories")
+      .select("id, code, label, description, sort_order, is_active")
+      .eq("id", parsed.id)
+      .single();
+    const { error } = await supabase
+      .from("handbook_categories")
+      .update({
+        code: parsed.code,
+        label: parsed.label,
+        description: cleanOptional(parsed.description),
+        sort_order: parsed.sortOrder,
+        is_active: parsed.isActive,
+      })
+      .eq("id", parsed.id);
+    if (error) throw new Error(error.message);
+    await writeAuditLog(supabase, {
+      targetType: "handbook_category",
+      targetId: parsed.id,
+      action: "handbook_category_updated",
+      summary: `Handboekcategorie bijgewerkt: ${parsed.label}`,
+      beforeState: current ?? null,
+      afterState: parsed,
+      changedFields: ["code", "label", "description", "sort_order", "is_active"],
+      context: { admin_area: "handbook", updated_by: session.userId },
+    });
+    redirect(buildFeedbackUrl("/handboek", "success", "Categorie bijgewerkt."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/handboek",
+        "error",
+        error instanceof Error ? error.message : "Categorie kon niet worden bijgewerkt.",
+      ),
+    );
+  }
+}
+
+export async function deleteHandbookCategoryAction(formData: FormData) {
+  try {
+    const session = await requirePermission("handbook.manage");
+    const parsed = categoryDeleteSchema.parse({ id: String(formData.get("id") ?? "") });
+    const supabase = await createSupabaseServerClient();
+    const { data: current } = await supabase
+      .from("handbook_categories")
+      .select("id, label")
+      .eq("id", parsed.id)
+      .single();
+    const { count } = await supabase
+      .from("handbook_articles")
+      .select("id", { count: "exact", head: true })
+      .eq("category_id", parsed.id);
+    if ((count ?? 0) > 0) {
+      throw new Error("Categorie bevat nog artikelen en kan niet verwijderd worden.");
+    }
+    const { error } = await supabase.from("handbook_categories").delete().eq("id", parsed.id);
+    if (error) throw new Error(error.message);
+    await writeAuditLog(supabase, {
+      targetType: "handbook_category",
+      targetId: parsed.id,
+      action: "handbook_category_deleted",
+      summary: `Handboekcategorie verwijderd: ${current?.label ?? parsed.id}`,
+      beforeState: current ?? null,
+      changedFields: ["id"],
+      context: { admin_area: "handbook", updated_by: session.userId },
+    });
+    redirect(buildFeedbackUrl("/handboek", "success", "Categorie verwijderd."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/handboek",
+        "error",
+        error instanceof Error ? error.message : "Categorie kon niet worden verwijderd.",
       ),
     );
   }

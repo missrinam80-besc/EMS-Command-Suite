@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAnyPermission } from "@/lib/auth";
+import { hasPermission, requireAnyPermission } from "@/lib/auth";
 import { getHandbookArticleBySlug } from "@/lib/handbook";
 
 type HandbookArticlePageProps = {
@@ -8,9 +8,12 @@ type HandbookArticlePageProps = {
 };
 
 export default async function HandbookArticlePage({ params }: HandbookArticlePageProps) {
-  await requireAnyPermission(["handbook.read", "handbook.manage"]);
+  const session = await requireAnyPermission(["handbook.read", "handbook.manage"]);
   const { slug } = await params;
-  const article = await getHandbookArticleBySlug(slug);
+  const article = await getHandbookArticleBySlug(slug, {
+    includeRestricted: hasPermission(session, "handbook.manage"),
+    viewerProfileId: session.userId,
+  });
   if (!article) notFound();
 
   return (
