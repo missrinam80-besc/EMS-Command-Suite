@@ -32,6 +32,8 @@ export const traumaReportSchema = z.object({
   interventions: z.string().trim().optional(),
   transportDecision: z.string().trim().optional(),
   followUp: z.string().trim().optional(),
+  dynamicFields: z.record(z.string(), z.unknown()).optional(),
+  templateCode: z.string().trim().optional(),
 });
 
 export const opnameReportSchema = z.object({
@@ -49,6 +51,8 @@ export const opnameReportSchema = z.object({
   medicationPlan: z.string().trim().optional(),
   admissionPlan: z.string().trim().optional(),
   wardNotes: z.string().trim().optional(),
+  dynamicFields: z.record(z.string(), z.unknown()).optional(),
+  templateCode: z.string().trim().optional(),
 });
 
 type ReportType = "trauma" | "opname";
@@ -181,7 +185,7 @@ export async function getOpnameReportsByPatient(patientId: string): Promise<Medi
 export async function createTraumaReport(input: z.infer<typeof traumaReportSchema>) {
   const parsed = traumaReportSchema.parse(input);
 
-  const content: TraumaReportContent = {
+  const legacyContent: TraumaReportContent = {
     incidentLocation: parsed.incidentLocation,
     mechanism: parsed.mechanism,
     triageLevel: parsed.triageLevel,
@@ -191,6 +195,11 @@ export async function createTraumaReport(input: z.infer<typeof traumaReportSchem
     interventions: parsed.interventions,
     transportDecision: parsed.transportDecision,
     followUp: parsed.followUp,
+  };
+  const dynamicFields = parsed.dynamicFields ?? {};
+  const content: TraumaReportContent & Record<string, unknown> = {
+    ...legacyContent,
+    ...dynamicFields,
   };
 
   if (shouldUseDemoData()) {
@@ -252,11 +261,12 @@ export async function createTraumaReport(input: z.infer<typeof traumaReportSchem
     patientId: parsed.patientId,
     action: "report_created",
     summary: `Traumarapport toegevoegd: ${parsed.title}`,
-    afterState: {
+      afterState: {
       reportType: "trauma",
       title: parsed.title,
       summary: parsed.summary,
       caseId: parsed.caseId || null,
+      templateCode: parsed.templateCode ?? null,
     },
     changedFields: ["report_type_code", "title", "summary", "case_id", "content"],
     context: { report_type: "trauma" },
@@ -269,7 +279,7 @@ export async function createTraumaReport(input: z.infer<typeof traumaReportSchem
 export async function createOpnameReport(input: z.infer<typeof opnameReportSchema>) {
   const parsed = opnameReportSchema.parse(input);
 
-  const content: OpnameReportContent = {
+  const legacyContent: OpnameReportContent = {
     admissionReason: parsed.admissionReason,
     referringUnit: parsed.referringUnit,
     attendingDoctor: parsed.attendingDoctor,
@@ -280,6 +290,11 @@ export async function createOpnameReport(input: z.infer<typeof opnameReportSchem
     medicationPlan: parsed.medicationPlan,
     admissionPlan: parsed.admissionPlan,
     wardNotes: parsed.wardNotes,
+  };
+  const dynamicFields = parsed.dynamicFields ?? {};
+  const content: OpnameReportContent & Record<string, unknown> = {
+    ...legacyContent,
+    ...dynamicFields,
   };
 
   if (shouldUseDemoData()) {
@@ -346,6 +361,7 @@ export async function createOpnameReport(input: z.infer<typeof opnameReportSchem
       title: parsed.title,
       summary: parsed.summary,
       caseId: parsed.caseId || null,
+      templateCode: parsed.templateCode ?? null,
     },
     changedFields: ["report_type_code", "title", "summary", "case_id", "content"],
     context: { report_type: "opname" },
@@ -360,7 +376,7 @@ export async function updateTraumaReport(
   input: z.infer<typeof traumaReportSchema>,
 ) {
   const parsed = traumaReportSchema.parse(input);
-  const content: TraumaReportContent = {
+  const legacyContent: TraumaReportContent = {
     incidentLocation: parsed.incidentLocation,
     mechanism: parsed.mechanism,
     triageLevel: parsed.triageLevel,
@@ -370,6 +386,11 @@ export async function updateTraumaReport(
     interventions: parsed.interventions,
     transportDecision: parsed.transportDecision,
     followUp: parsed.followUp,
+  };
+  const dynamicFields = parsed.dynamicFields ?? {};
+  const content: TraumaReportContent & Record<string, unknown> = {
+    ...legacyContent,
+    ...dynamicFields,
   };
 
   if (shouldUseDemoData()) {
@@ -428,6 +449,7 @@ export async function updateTraumaReport(
       title: parsed.title,
       summary: parsed.summary,
       caseId: parsed.caseId || null,
+      templateCode: parsed.templateCode ?? null,
     },
     changedFields: ["case_id", "title", "summary", "content"],
     context: { report_type: "trauma" },
@@ -443,7 +465,7 @@ export async function updateOpnameReport(
   input: z.infer<typeof opnameReportSchema>,
 ) {
   const parsed = opnameReportSchema.parse(input);
-  const content: OpnameReportContent = {
+  const legacyContent: OpnameReportContent = {
     admissionReason: parsed.admissionReason,
     referringUnit: parsed.referringUnit,
     attendingDoctor: parsed.attendingDoctor,
@@ -454,6 +476,11 @@ export async function updateOpnameReport(
     medicationPlan: parsed.medicationPlan,
     admissionPlan: parsed.admissionPlan,
     wardNotes: parsed.wardNotes,
+  };
+  const dynamicFields = parsed.dynamicFields ?? {};
+  const content: OpnameReportContent & Record<string, unknown> = {
+    ...legacyContent,
+    ...dynamicFields,
   };
 
   if (shouldUseDemoData()) {
@@ -512,6 +539,7 @@ export async function updateOpnameReport(
       title: parsed.title,
       summary: parsed.summary,
       caseId: parsed.caseId || null,
+      templateCode: parsed.templateCode ?? null,
     },
     changedFields: ["case_id", "title", "summary", "content"],
     context: { report_type: "opname" },

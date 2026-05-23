@@ -47,6 +47,33 @@ function normalizedSectionKey(input: string) {
   return input.trim().toLowerCase().replace(/\s+/g, "_") || "general";
 }
 
+function parseConditionalValue(operator: string, rawValue: string): string | string[] {
+  if (operator === "in" || operator === "not_in") {
+    return rawValue
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return rawValue;
+}
+
+function syncConditionalLogic(form: HTMLFormElement, overrides?: Partial<{ field: string; operator: string; value: string }>) {
+  const fieldInput = form.elements.namedItem("_condField") as HTMLInputElement | null;
+  const opSelect = form.elements.namedItem("_condOp") as HTMLSelectElement | null;
+  const valueInput = form.elements.namedItem("_condVal") as HTMLInputElement | null;
+  const logicArea = form.elements.namedItem("conditionalLogic") as HTMLTextAreaElement | null;
+  if (!fieldInput || !opSelect || !valueInput || !logicArea) return;
+
+  const field = overrides?.field ?? fieldInput.value ?? "";
+  const operator = overrides?.operator ?? opSelect.value ?? "equals";
+  const value = overrides?.value ?? valueInput.value ?? "";
+  const payload =
+    field.trim().length > 0
+      ? { when: { field, operator, value: parseConditionalValue(operator, value) } }
+      : {};
+  logicArea.value = safeJsonString(payload);
+}
+
 export function AdminReportFormBuilder({ reportTypes, templates, fields }: AdminReportFormBuilderProps) {
   const fieldsByTemplate = new Map<string, ManagedFormField[]>();
   for (const field of fields) {
@@ -253,29 +280,48 @@ export function AdminReportFormBuilder({ reportTypes, templates, fields }: Admin
                             <div className="grid gap-2 md:grid-cols-3">
                               <input name="_condField" defaultValue={rule.field ?? ""} placeholder="conditional field" className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs" onChange={(e) => {
                                 const form = e.currentTarget.form as HTMLFormElement;
-                                const op = (form.elements.namedItem("_condOp") as HTMLSelectElement)?.value || "equals";
-                                const val = (form.elements.namedItem("_condVal") as HTMLInputElement)?.value || "";
-                                const payload = e.currentTarget.value ? { when: { field: e.currentTarget.value, operator: op, value: val } } : {};
-                                (form.elements.namedItem("conditionalLogic") as HTMLTextAreaElement).value = safeJsonString(payload);
+                                syncConditionalLogic(form);
                               }} />
                               <select name="_condOp" defaultValue={rule.operator ?? "equals"} className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs" onChange={(e) => {
                                 const form = e.currentTarget.form as HTMLFormElement;
-                                const fld = (form.elements.namedItem("_condField") as HTMLInputElement)?.value || "";
-                                const val = (form.elements.namedItem("_condVal") as HTMLInputElement)?.value || "";
-                                const payload = fld ? { when: { field: fld, operator: e.currentTarget.value, value: val } } : {};
-                                (form.elements.namedItem("conditionalLogic") as HTMLTextAreaElement).value = safeJsonString(payload);
+                                syncConditionalLogic(form);
                               }}>
                                 <option value="equals">equals</option>
                                 <option value="not_equals">not_equals</option>
                                 <option value="contains">contains</option>
+                                <option value="not_contains">not_contains</option>
+                                <option value="truthy">truthy</option>
+                                <option value="falsy">falsy</option>
+                                <option value="gt">gt</option>
+                                <option value="lt">lt</option>
+                                <option value="in">in (csv)</option>
+                                <option value="not_in">not_in (csv)</option>
                               </select>
                               <input name="_condVal" defaultValue={rule.value ?? ""} placeholder="conditional value" className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs" onChange={(e) => {
                                 const form = e.currentTarget.form as HTMLFormElement;
-                                const fld = (form.elements.namedItem("_condField") as HTMLInputElement)?.value || "";
-                                const op = (form.elements.namedItem("_condOp") as HTMLSelectElement)?.value || "equals";
-                                const payload = fld ? { when: { field: fld, operator: op, value: e.currentTarget.value } } : {};
-                                (form.elements.namedItem("conditionalLogic") as HTMLTextAreaElement).value = safeJsonString(payload);
+                                syncConditionalLogic(form);
                               }} />
+                            </div>
+                            <p className="text-xs text-[var(--color-muted)]">
+                              Bij <code>in</code> / <code>not_in</code>: gebruik komma-gescheiden waarden, bv. <code>P1,P2,P3</code>.
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {["equals", "not_equals", "contains", "not_contains", "truthy", "falsy", "gt", "lt", "in", "not_in"].map((operator) => (
+                                <button
+                                  key={operator}
+                                  type="button"
+                                  className="rounded-full border border-[var(--color-line)] px-3 py-1 text-xs font-semibold"
+                                  onClick={(e) => {
+                                    const form = (e.currentTarget.form as HTMLFormElement) ?? null;
+                                    if (!form) return;
+                                    const opSelect = form.elements.namedItem("_condOp") as HTMLSelectElement | null;
+                                    if (opSelect) opSelect.value = operator;
+                                    syncConditionalLogic(form, { operator });
+                                  }}
+                                >
+                                  {operator}
+                                </button>
+                              ))}
                             </div>
 
                             <textarea name="validationRules" defaultValue={safeJsonString(field.validationRules)} rows={2} className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs" />

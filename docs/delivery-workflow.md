@@ -38,3 +38,14 @@ Zet branch protection op `main`:
 - Require status checks to pass before merging
 - Selecteer status check: `lint-and-build`
 - (aanrader) Require branches to be up to date before merging
+
+## 5) Post-deploy smoke-check
+
+Na elke deploy naar `main` moet de post-deploy smoke-check worden uitgevoerd:
+
+- Zie: `docs/post-deploy-smoke-checklist.md`
+- Minimale gates:
+  - login/logout OK
+  - toegang hoofdmodules OK (`/zorg`, `/personeel`, `/beheer`)
+  - trauma + opname create/edit/detail OK
+  - audit logs voor create/update aanwezig

@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FeedbackBanner } from "@/components/feedback-banner";
+import { RuntimeTemplateFields } from "@/components/runtime-template-fields";
 import { requirePermission } from "@/lib/auth";
 import { readFeedback } from "@/lib/feedback";
 import { getPatientDetail } from "@/lib/patients";
+import { getActiveRuntimeReportTemplate } from "@/lib/report-template-runtime";
 import { createOpnameReportAction } from "../actions";
 
 type NewOpnameReportPageProps = {
@@ -19,11 +21,29 @@ export default async function NewOpnameReportPage({
 
   const { patientId } = await params;
   const feedback = readFeedback(await searchParams);
-  const patient = await getPatientDetail(patientId);
+  const [patient, runtimeTemplate] = await Promise.all([
+    getPatientDetail(patientId),
+    getActiveRuntimeReportTemplate("opname"),
+  ]);
 
   if (!patient) {
     notFound();
   }
+  const legacyFieldKeys = new Set([
+    "admissionReason",
+    "referringUnit",
+    "attendingDoctor",
+    "supportingStaff",
+    "clinicalStatus",
+    "provisionalDiagnosis",
+    "startedCare",
+    "medicationPlan",
+    "admissionPlan",
+    "wardNotes",
+  ]);
+  const dynamicFields = (runtimeTemplate?.fields ?? []).filter(
+    (field) => !legacyFieldKeys.has(field.fieldKey),
+  );
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-8 md:px-10 lg:px-12">
@@ -229,6 +249,8 @@ export default async function NewOpnameReportPage({
               Opnamerapport opslaan
             </button>
           </article>
+
+          <RuntimeTemplateFields fields={dynamicFields} />
         </section>
       </form>
     </main>

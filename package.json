@@ -7,6 +7,8 @@
     "build": "node scripts/check-hosted-env.mjs && next build",
     "start": "next start",
     "lint": "eslint",
+    "test:runtime": "node --import tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test",
     "create:admin-user": "set NODE_OPTIONS=--use-system-ca&& node scripts/create-admin-user.mjs"
   },
   "dependencies": {
@@ -19,6 +21,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -26,6 +29,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
+    "tsx": "^4.22.3",
     "typescript": "^5"
   }
 }

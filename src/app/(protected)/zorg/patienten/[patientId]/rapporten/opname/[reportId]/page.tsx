@@ -2,6 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePermission } from "@/lib/auth";
 import { getPatientDetail } from "@/lib/patients";
+import {
+  evaluateRuntimeFieldVisibility,
+  formatRuntimeFieldValue,
+  getActiveRuntimeReportTemplate,
+} from "@/lib/report-template-runtime";
 import { getReportAuthorLabel, getReportById } from "@/lib/reports";
 import type { OpnameReportContent } from "@/types/domain";
 
@@ -21,6 +26,18 @@ const opnameFields: Array<{ label: string; key: keyof OpnameReportContent }> = [
   { label: "Opnameplan", key: "admissionPlan" },
   { label: "Afdelingsnotities", key: "wardNotes" },
 ];
+const legacyFieldTypeByKey: Record<string, "text" | "textarea"> = {
+  admissionReason: "text",
+  referringUnit: "text",
+  attendingDoctor: "text",
+  supportingStaff: "text",
+  clinicalStatus: "textarea",
+  provisionalDiagnosis: "textarea",
+  startedCare: "textarea",
+  medicationPlan: "textarea",
+  admissionPlan: "textarea",
+  wardNotes: "textarea",
+};
 
 export default async function OpnameReportDetailPage({
   params,
@@ -36,6 +53,24 @@ export default async function OpnameReportDetailPage({
   if (!patient || !report) notFound();
 
   const content = report.content as OpnameReportContent;
+  const contentRecord = content as Record<string, unknown>;
+  const runtimeTemplate = await getActiveRuntimeReportTemplate("opname");
+  const fieldConfig = runtimeTemplate?.fields.length
+    ? runtimeTemplate.fields.map((field) => ({
+        label: field.label,
+        key: field.fieldKey,
+        fieldType: field.fieldType,
+        conditionalLogic: field.conditionalLogic,
+      }))
+    : opnameFields.map((field) => ({
+        label: field.label,
+        key: field.key as string,
+        fieldType: legacyFieldTypeByKey[field.key as string] ?? "text",
+        conditionalLogic: {},
+      }));
+  const visibleFieldConfig = fieldConfig.filter((field) =>
+    evaluateRuntimeFieldVisibility(field, contentRecord),
+  );
   const linkedCase = patient.cases.find((patientCase) => patientCase.id === report.caseId);
   const authorLabel = await getReportAuthorLabel(report.authorProfileId);
   const updatedAt = report.updatedAt ?? report.createdAt;
@@ -125,7 +160,7 @@ export default async function OpnameReportDetailPage({
           </article>
 
           <section className="grid gap-4 md:grid-cols-2">
-            {opnameFields.map((field) => (
+            {visibleFieldConfig.map((field) => (
               <article
                 key={field.key}
                 className="rounded-[1.5rem] border border-[var(--color-line)] bg-[var(--color-surface)] p-5 shadow-[var(--shadow-soft)]"
@@ -134,7 +169,10 @@ export default async function OpnameReportDetailPage({
                   {field.label}
                 </p>
                 <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[var(--color-ink)]">
-                  {content[field.key] || "Niet ingevuld"}
+                  {formatRuntimeFieldValue(
+                    contentRecord[field.key],
+                    field.fieldType,
+                  )}
                 </p>
               </article>
             ))}

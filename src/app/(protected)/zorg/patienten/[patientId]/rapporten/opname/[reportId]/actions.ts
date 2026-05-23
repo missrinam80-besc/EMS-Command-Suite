@@ -3,6 +3,12 @@
 import { redirect } from "next/navigation";
 import { requireReportEditAccess } from "@/lib/auth";
 import { buildFeedbackUrl } from "@/lib/feedback";
+import { mapOpnameReportInput } from "@/lib/report-action-input";
+import { rethrowIfRedirectError } from "@/lib/redirect-error";
+import {
+  getActiveRuntimeReportTemplate,
+  validateRuntimeFieldValues,
+} from "@/lib/report-template-runtime";
 import { updateOpnameReport } from "@/lib/reports";
 
 export async function updateOpnameReportAction(formData: FormData) {
@@ -15,24 +21,19 @@ export async function updateOpnameReportAction(formData: FormData) {
       reportType: "opname",
       forbiddenRedirectPath: `/zorg/patienten/${patientId}/rapporten/opname/${reportId}`,
     });
-    await updateOpnameReport(reportId, {
-      patientId,
-      caseId: String(formData.get("caseId") ?? ""),
-      title: String(formData.get("title") ?? ""),
-      summary: String(formData.get("summary") ?? ""),
-      admissionReason: String(formData.get("admissionReason") ?? ""),
-      referringUnit: String(formData.get("referringUnit") ?? ""),
-      attendingDoctor: String(formData.get("attendingDoctor") ?? ""),
-      supportingStaff: String(formData.get("supportingStaff") ?? ""),
-      clinicalStatus: String(formData.get("clinicalStatus") ?? ""),
-      provisionalDiagnosis: String(formData.get("provisionalDiagnosis") ?? ""),
-      startedCare: String(formData.get("startedCare") ?? ""),
-      medicationPlan: String(formData.get("medicationPlan") ?? ""),
-      admissionPlan: String(formData.get("admissionPlan") ?? ""),
-      wardNotes: String(formData.get("wardNotes") ?? ""),
-    });
+    const template = await getActiveRuntimeReportTemplate("opname");
+    const input = mapOpnameReportInput(formData, template);
+    if (template) {
+      const validationErrors = validateRuntimeFieldValues(input.dynamicFields ?? {}, template.fields);
+      if (validationErrors.length > 0) {
+        throw new Error(validationErrors[0]);
+      }
+    }
+
+    await updateOpnameReport(reportId, input);
     redirect(buildFeedbackUrl(`/zorg/patienten/${patientId}`, "success", "Opnamerapport bijgewerkt."));
   } catch (error) {
+    rethrowIfRedirectError(error);
     redirect(buildFeedbackUrl(`/zorg/patienten/${patientId}/rapporten/opname/${reportId}/bewerken`, "error", error instanceof Error ? error.message : "Opnamerapport kon niet worden bijgewerkt."));
   }
 }

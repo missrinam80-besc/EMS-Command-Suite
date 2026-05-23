@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FeedbackBanner } from "@/components/feedback-banner";
+import { RuntimeTemplateFields } from "@/components/runtime-template-fields";
 import { requireReportEditAccess } from "@/lib/auth";
 import { readFeedback } from "@/lib/feedback";
 import { getPatientDetail } from "@/lib/patients";
+import { getActiveRuntimeReportTemplate } from "@/lib/report-template-runtime";
 import { getReportAuthorLabel, getReportById } from "@/lib/reports";
 import type { OpnameReportContent } from "@/types/domain";
 import { updateOpnameReportAction } from "../actions";
@@ -33,6 +35,22 @@ export default async function EditOpnameReportPage({
   if (!patient || !report) notFound();
 
   const content = report.content as OpnameReportContent;
+  const runtimeTemplate = await getActiveRuntimeReportTemplate("opname");
+  const legacyFieldKeys = new Set([
+    "admissionReason",
+    "referringUnit",
+    "attendingDoctor",
+    "supportingStaff",
+    "clinicalStatus",
+    "provisionalDiagnosis",
+    "startedCare",
+    "medicationPlan",
+    "admissionPlan",
+    "wardNotes",
+  ]);
+  const dynamicFields = (runtimeTemplate?.fields ?? []).filter(
+    (field) => !legacyFieldKeys.has(field.fieldKey),
+  );
   const linkedCase = patient.cases.find((patientCase) => patientCase.id === report.caseId);
   const authorLabel = await getReportAuthorLabel(report.authorProfileId);
   const updatedAt = report.updatedAt ?? report.createdAt;
@@ -239,6 +257,8 @@ export default async function EditOpnameReportPage({
               Wijzigingen opslaan
             </button>
           </article>
+
+          <RuntimeTemplateFields fields={dynamicFields} initialValues={content as Record<string, unknown>} />
         </section>
       </form>
     </main>
