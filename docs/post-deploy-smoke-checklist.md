@@ -113,3 +113,19 @@ Conclusie:
 - 7 Logout: PASS
 - Opmerkingen: eerdere `NEXT_REDIRECT` issue opgelost in deze deploylijn.
 - Blokkerend voor release? NEE
+
+## Production run (2026-05-23, governance hardening - commit `e1f49f2`)
+
+- Datum/tijd: 2026-05-23 20:06 (Europe/Brussels)
+- Commit SHA: `e1f49f2`
+- Vercel deployment URL: `https://ems-command-suite.vercel.app/`
+- Uitvoerder: beheeraccount
+- 1 Login: PENDING
+- 2 Moduletoegang: PENDING
+- 3 Trauma flow: PENDING
+- 4 Opname flow: PENDING
+- 5 Runtime conditionals: PENDING
+- 6 Audit logging: PENDING
+- 7 Logout: PENDING
+- Opmerkingen: governance hardening deploy (CI bevat nu ook `test:runtime`; runbook toegevoegd). Live browser-validatie vereist.
+- Blokkerend voor release? PENDING
