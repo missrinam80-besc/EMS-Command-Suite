@@ -49,6 +49,7 @@
 - [x] admin-overzicht permissies
 - [x] seed scripts voor basisdata
 - [x] export- en rapportagepaden
+- [x] release-hardening runbook en verplichte runtime-regressie in CI
 
 ## Fase-overgang (status 2026-05-23)
 

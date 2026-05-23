@@ -18,6 +18,7 @@ Dit project werkt met de volgende vaste flow.
   - `npm ci`
   - `npm run lint`
   - `npm run build`
+  - `npm run test:runtime`
 
 ## 3) Deploy-policy
 
@@ -49,3 +50,8 @@ Na elke deploy naar `main` moet de post-deploy smoke-check worden uitgevoerd:
   - toegang hoofdmodules OK (`/zorg`, `/personeel`, `/beheer`)
   - trauma + opname create/edit/detail OK
   - audit logs voor create/update aanwezig
+
+## 6) Governance runbook
+
+- Zie: `docs/governance-release-runbook.md`
+- Gebruik dit document als vaste release- en incidentprocedure.
