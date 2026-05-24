@@ -344,11 +344,13 @@ async function ensureUniqueUserFields(
 
 async function resolveActiveTenantId(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  actorProfileId: string,
   requestedTenantId?: string | null,
 ) {
   const normalizedTenantId = cleanOptional(requestedTenantId ?? undefined);
+  const actorTenantId = await getProfileTenantId(supabase, actorProfileId).catch(() => null);
   const fallbackTenantId = (await supabase.rpc("get_default_tenant_id")).data;
-  const tenantId = normalizedTenantId ?? fallbackTenantId;
+  const tenantId = normalizedTenantId ?? actorTenantId ?? fallbackTenantId;
   if (!tenantId) {
     throw new Error("Geen geldige tenant gevonden.");
   }
@@ -494,7 +496,7 @@ export async function createManagedUserAction(formData: FormData) {
     });
 
     const adminClient = createAdminClient();
-    const tenantId = await resolveActiveTenantId(supabase, parsed.tenantId);
+    const tenantId = await resolveActiveTenantId(supabase, session.userId, parsed.tenantId);
     await assertTenantScopedAccess(supabase, session, tenantId);
     const { data: createdUser, error: createError } = await adminClient.auth.admin.createUser({
       email: parsed.email,
@@ -622,7 +624,7 @@ export async function updateManagedUserAction(formData: FormData) {
       .single();
 
     const adminClient = createAdminClient();
-    const tenantId = await resolveActiveTenantId(supabase, parsed.tenantId);
+    const tenantId = await resolveActiveTenantId(supabase, session.userId, parsed.tenantId);
     await assertTenantScopedAccess(supabase, session, tenantId);
     const authUpdatePayload: {
       email?: string;
