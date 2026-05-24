@@ -23,6 +23,9 @@ export default async function BeheerIntelligencePage() {
         <p className="mt-4 max-w-3xl text-base leading-7 text-cyan-50/84">
           KPI-overzicht, trends, datakwaliteit en operationele alerts op basis van de laatste 30 dagen.
         </p>
+        <p className="mt-2 text-sm text-cyan-50/80">
+          Tenant: {snapshot.tenantLabel} ({snapshot.tenantCode})
+        </p>
         <div className="mt-5">
           <Link href="/beheer" className="inline-flex rounded-full border border-cyan-100/40 px-4 py-2 text-sm font-semibold text-cyan-50">
             Terug naar beheer

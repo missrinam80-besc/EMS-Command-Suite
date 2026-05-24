@@ -1,5 +1,6 @@
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { hasSupabaseEnv, shouldUseDemoData } from "@/lib/env";
+import { getTenantContext } from "@/lib/tenant";
 
 type TrendPoint = {
   date: string;
@@ -7,6 +8,8 @@ type TrendPoint = {
 };
 
 export type IntelligenceSnapshot = {
+  tenantCode: string;
+  tenantLabel: string;
   rangeFrom: string;
   rangeTo: string;
   kpis: {
@@ -72,9 +75,12 @@ function bucketByDate(
 }
 
 export async function getIntelligenceSnapshot(days = 30): Promise<IntelligenceSnapshot> {
+  const tenant = await getTenantContext();
   const { from, to } = buildDateRange(days);
   if (shouldUseDemoData() || !hasSupabaseEnv()) {
     return {
+      tenantCode: tenant.tenantCode,
+      tenantLabel: tenant.tenantLabel,
       rangeFrom: from,
       rangeTo: to,
       kpis: {
@@ -96,10 +102,45 @@ export async function getIntelligenceSnapshot(days = 30): Promise<IntelligenceSn
   }
 
   const supabase = await createSupabaseServerClient();
+  const tenantId = tenant.tenantId;
   const fromTs = `${from}T00:00:00.000Z`;
   const toTs = `${to}T23:59:59.999Z`;
   const now = new Date();
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+
+  const patientsCountQuery = tenantId
+    ? supabase.from("patients").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId)
+    : supabase.from("patients").select("*", { count: "exact", head: true });
+  const reportsCountQuery = tenantId
+    ? supabase.from("medical_reports").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId)
+    : supabase.from("medical_reports").select("*", { count: "exact", head: true });
+  const casesOpenQuery = tenantId
+    ? supabase.from("patient_cases").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId)
+    : supabase.from("patient_cases").select("*", { count: "exact", head: true });
+  const staffActiveQuery = tenantId
+    ? supabase.from("profiles").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId)
+    : supabase.from("profiles").select("*", { count: "exact", head: true });
+  const meetingsUpcomingQuery = tenantId
+    ? supabase.from("meetings").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId)
+    : supabase.from("meetings").select("*", { count: "exact", head: true });
+  const audit24hQuery = tenantId
+    ? supabase.from("audit_logs").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId)
+    : supabase.from("audit_logs").select("*", { count: "exact", head: true });
+  const reportsTrendQuery = tenantId
+    ? supabase.from("medical_reports").select("created_at").eq("tenant_id", tenantId)
+    : supabase.from("medical_reports").select("created_at");
+  const auditsTrendQuery = tenantId
+    ? supabase.from("audit_logs").select("created_at").eq("tenant_id", tenantId)
+    : supabase.from("audit_logs").select("created_at");
+  const dqReportsQuery = tenantId
+    ? supabase.from("medical_reports").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId)
+    : supabase.from("medical_reports").select("*", { count: "exact", head: true });
+  const dqPatientsQuery = tenantId
+    ? supabase.from("patients").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId)
+    : supabase.from("patients").select("*", { count: "exact", head: true });
+  const dqProfilesQuery = tenantId
+    ? supabase.from("profiles").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId)
+    : supabase.from("profiles").select("*", { count: "exact", head: true });
 
   const [
     { count: patientsTotal },
@@ -114,37 +155,22 @@ export async function getIntelligenceSnapshot(days = 30): Promise<IntelligenceSn
     { count: patientsMissingCitizenId },
     { count: profilesMissingRank },
   ] = await Promise.all([
-    supabase.from("patients").select("*", { count: "exact", head: true }).eq("is_deleted", false),
-    supabase.from("medical_reports").select("*", { count: "exact", head: true }),
-    supabase.from("patient_cases").select("*", { count: "exact", head: true }).eq("status", "open"),
-    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("employment_status", "actief"),
-    supabase.from("meetings").select("*", { count: "exact", head: true }).gte("scheduled_for", now.toISOString()),
-    supabase.from("audit_logs").select("*", { count: "exact", head: true }).gte("created_at", dayAgo),
-    supabase
-      .from("medical_reports")
-      .select("created_at")
-      .gte("created_at", fromTs)
-      .lte("created_at", toTs)
-      .limit(10000),
-    supabase
-      .from("audit_logs")
-      .select("created_at")
-      .gte("created_at", fromTs)
-      .lte("created_at", toTs)
-      .limit(10000),
-    supabase
-      .from("medical_reports")
-      .select("*", { count: "exact", head: true })
-      .or("summary.is.null,summary.eq."),
-    supabase
-      .from("patients")
-      .select("*", { count: "exact", head: true })
-      .or("citizenid.is.null,citizenid.eq.")
-      .eq("is_deleted", false),
-    supabase.from("profiles").select("*", { count: "exact", head: true }).is("rank_id", null),
+    patientsCountQuery.eq("is_deleted", false),
+    reportsCountQuery,
+    casesOpenQuery.eq("status", "open"),
+    staffActiveQuery.eq("employment_status", "actief"),
+    meetingsUpcomingQuery.gte("scheduled_for", now.toISOString()),
+    audit24hQuery.gte("created_at", dayAgo),
+    reportsTrendQuery.gte("created_at", fromTs).lte("created_at", toTs).limit(10000),
+    auditsTrendQuery.gte("created_at", fromTs).lte("created_at", toTs).limit(10000),
+    dqReportsQuery.or("summary.is.null,summary.eq."),
+    dqPatientsQuery.or("citizenid.is.null,citizenid.eq.").eq("is_deleted", false),
+    dqProfilesQuery.is("rank_id", null),
   ]);
 
   const snapshot: IntelligenceSnapshot = {
+    tenantCode: tenant.tenantCode,
+    tenantLabel: tenant.tenantLabel,
     rangeFrom: from,
     rangeTo: to,
     kpis: {

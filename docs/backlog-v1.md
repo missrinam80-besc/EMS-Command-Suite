@@ -75,6 +75,15 @@
 - [x] API trigger voor jobs (`POST /api/automation/run`)
 - [x] scheduled automation workflow + beheer-trigger + audittrail
 
+## Fase 10: schaalbaarheid & multi-tenant readiness
+
+- [x] tenant basismodel (`tenants` + default tenant)
+- [x] tenant_id op kernentiteiten met indexes/backfill/defaulting
+- [x] intelligence tenant-aware context en scoping
+- [x] integraties/automation tenant-aware scoping
+- [ ] RLS policies van alle modules volledig tenant-restrictive maken
+- [ ] tweede tenant onboarding + cross-tenant regressietest
+
 ## Fase-overgang (status 2026-05-23)
 
 Afgerond in deze iteratie:

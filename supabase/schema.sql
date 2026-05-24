@@ -1913,3 +1913,87 @@ on public.automation_runs
 for update
 using (public.has_permission('config.database.read'))
 with check (public.has_permission('config.database.read'));
+
+create table if not exists public.tenants (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  label text not null,
+  is_active boolean not null default true,
+  is_default boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists idx_tenants_default_unique on public.tenants(is_default) where is_default = true;
+
+drop trigger if exists trg_tenants_updated_at on public.tenants;
+create trigger trg_tenants_updated_at
+before update on public.tenants
+for each row execute function public.set_updated_at();
+
+create or replace function public.get_default_tenant_id()
+returns uuid
+language sql
+stable
+as $$
+  select id from public.tenants where is_default = true limit 1
+$$;
+
+alter table public.profiles add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
+alter table public.patients add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
+alter table public.patient_cases add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
+alter table public.medical_reports add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
+alter table public.meetings add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
+alter table public.staff_evaluations add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
+alter table public.staff_absences add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
+alter table public.staff_rewards add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
+alter table public.staff_strikepoint_entries add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
+alter table public.meeting_action_items add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
+alter table public.audit_logs add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
+alter table public.integration_endpoints add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
+alter table public.integration_webhook_deliveries add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
+alter table public.automation_jobs add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
+alter table public.automation_runs add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
+
+alter table public.profiles alter column tenant_id set default public.get_default_tenant_id();
+alter table public.patients alter column tenant_id set default public.get_default_tenant_id();
+alter table public.patient_cases alter column tenant_id set default public.get_default_tenant_id();
+alter table public.medical_reports alter column tenant_id set default public.get_default_tenant_id();
+alter table public.meetings alter column tenant_id set default public.get_default_tenant_id();
+alter table public.staff_evaluations alter column tenant_id set default public.get_default_tenant_id();
+alter table public.staff_absences alter column tenant_id set default public.get_default_tenant_id();
+alter table public.staff_rewards alter column tenant_id set default public.get_default_tenant_id();
+alter table public.staff_strikepoint_entries alter column tenant_id set default public.get_default_tenant_id();
+alter table public.meeting_action_items alter column tenant_id set default public.get_default_tenant_id();
+alter table public.audit_logs alter column tenant_id set default public.get_default_tenant_id();
+alter table public.integration_endpoints alter column tenant_id set default public.get_default_tenant_id();
+alter table public.integration_webhook_deliveries alter column tenant_id set default public.get_default_tenant_id();
+alter table public.automation_jobs alter column tenant_id set default public.get_default_tenant_id();
+alter table public.automation_runs alter column tenant_id set default public.get_default_tenant_id();
+
+create index if not exists idx_profiles_tenant on public.profiles(tenant_id);
+create index if not exists idx_patients_tenant_created on public.patients(tenant_id, created_at desc);
+create index if not exists idx_patient_cases_tenant_created on public.patient_cases(tenant_id, opened_at desc);
+create index if not exists idx_medical_reports_tenant_created on public.medical_reports(tenant_id, created_at desc);
+create index if not exists idx_meetings_tenant_created on public.meetings(tenant_id, created_at desc);
+create index if not exists idx_audit_logs_tenant_created on public.audit_logs(tenant_id, created_at desc);
+create index if not exists idx_integration_endpoints_tenant_code on public.integration_endpoints(tenant_id, code);
+create index if not exists idx_integration_deliveries_tenant_pushed on public.integration_webhook_deliveries(tenant_id, pushed_at desc);
+create index if not exists idx_automation_jobs_tenant_code on public.automation_jobs(tenant_id, job_code);
+create index if not exists idx_automation_runs_tenant_started on public.automation_runs(tenant_id, started_at desc);
+
+update public.profiles set tenant_id = public.get_default_tenant_id() where tenant_id is null;
+update public.patients set tenant_id = public.get_default_tenant_id() where tenant_id is null;
+update public.patient_cases set tenant_id = public.get_default_tenant_id() where tenant_id is null;
+update public.medical_reports set tenant_id = public.get_default_tenant_id() where tenant_id is null;
+update public.meetings set tenant_id = public.get_default_tenant_id() where tenant_id is null;
+update public.staff_evaluations set tenant_id = public.get_default_tenant_id() where tenant_id is null;
+update public.staff_absences set tenant_id = public.get_default_tenant_id() where tenant_id is null;
+update public.staff_rewards set tenant_id = public.get_default_tenant_id() where tenant_id is null;
+update public.staff_strikepoint_entries set tenant_id = public.get_default_tenant_id() where tenant_id is null;
+update public.meeting_action_items set tenant_id = public.get_default_tenant_id() where tenant_id is null;
+update public.audit_logs set tenant_id = public.get_default_tenant_id() where tenant_id is null;
+update public.integration_endpoints set tenant_id = public.get_default_tenant_id() where tenant_id is null;
+update public.integration_webhook_deliveries set tenant_id = public.get_default_tenant_id() where tenant_id is null;
+update public.automation_jobs set tenant_id = public.get_default_tenant_id() where tenant_id is null;
+update public.automation_runs set tenant_id = public.get_default_tenant_id() where tenant_id is null;

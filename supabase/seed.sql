@@ -7,6 +7,16 @@
 -- Deze seed is veilig voor lokaal, staging en productie-bootstrap.
 -- Ze bevat bewust geen nep-patiënten, nep-rapporten of demo-personeelsdata.
 
+insert into public.tenants (code, label, is_active, is_default)
+values
+  ('default', 'Default EMS Tenant', true, true)
+on conflict (code) do update
+set
+  label = excluded.label,
+  is_active = excluded.is_active,
+  is_default = excluded.is_default,
+  updated_at = now();
+
 insert into public.ranks (code, name, rank_number, color_hex, description)
 values
   ('rank_1', 'Medische Directie / Ziekenhuisdirectie', 1, '#c92f2f', 'Eindverantwoordelijkheid over beleid, werking en escalaties.'),

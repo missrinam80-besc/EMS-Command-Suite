@@ -8,6 +8,7 @@ import { buildFeedbackUrl } from "@/lib/feedback";
 import { dispatchIntegrationEvent, runAutomationJob } from "@/lib/integrations";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
+import { getTenantContext } from "@/lib/tenant";
 
 const endpointSchema = z.object({
   code: z.string().trim().min(2),
@@ -40,9 +41,11 @@ export async function createIntegrationEndpointAction(formData: FormData) {
       isActive: checkbox(formData.get("isActive")),
     });
     const supabase = await createSupabaseServerClient();
+    const tenant = await getTenantContext();
     const { data, error } = await supabase
       .from("integration_endpoints")
       .insert({
+        tenant_id: tenant.tenantId,
         code: parsed.code,
         label: parsed.label,
         target_url: parsed.targetUrl,
@@ -86,8 +89,12 @@ export async function updateIntegrationEndpointAction(formData: FormData) {
       isActive: checkbox(formData.get("isActive")),
     });
     const supabase = await createSupabaseServerClient();
-    const { data: before } = await supabase.from("integration_endpoints").select("*").eq("id", parsed.id).single();
-    const { error } = await supabase
+    const tenant = await getTenantContext();
+    const scopedBefore = tenant.tenantId
+      ? supabase.from("integration_endpoints").select("*").eq("id", parsed.id).eq("tenant_id", tenant.tenantId)
+      : supabase.from("integration_endpoints").select("*").eq("id", parsed.id);
+    const { data: before } = await scopedBefore.single();
+    let updateQuery = supabase
       .from("integration_endpoints")
       .update({
         code: parsed.code,
@@ -99,6 +106,8 @@ export async function updateIntegrationEndpointAction(formData: FormData) {
         is_active: parsed.isActive,
       })
       .eq("id", parsed.id);
+    if (tenant.tenantId) updateQuery = updateQuery.eq("tenant_id", tenant.tenantId);
+    const { error } = await updateQuery;
     if (error) throw new Error(error.message);
 
     await writeAuditLog(supabase, {

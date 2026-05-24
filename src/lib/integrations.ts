@@ -4,6 +4,7 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 import { hasSupabaseEnv, shouldUseDemoData } from "@/lib/env";
 import { writeAuditLog } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantContext } from "@/lib/tenant";
 
 export type IntegrationEndpoint = {
   id: string;
@@ -18,6 +19,7 @@ export type IntegrationEndpoint = {
   lastError: string | null;
   lastDeliveryAt: string | null;
   lastSuccessAt: string | null;
+  tenantId?: string | null;
 };
 
 export type IntegrationDelivery = {
@@ -86,37 +88,48 @@ function toEndpoint(row: {
     lastError: row.last_error,
     lastDeliveryAt: row.last_delivery_at,
     lastSuccessAt: row.last_success_at,
+    tenantId: null,
   };
 }
 
-async function getActiveEndpointsWithClient(supabase: SupabaseClient): Promise<IntegrationEndpoint[]> {
-  const { data, error } = await supabase
+async function getActiveEndpointsWithClient(
+  supabase: SupabaseClient,
+  tenantId?: string | null,
+): Promise<IntegrationEndpoint[]> {
+  let query = supabase
     .from("integration_endpoints")
-    .select("id, code, label, target_url, signing_secret, is_active, retry_limit, timeout_ms, last_status, last_error, last_delivery_at, last_success_at")
-    .order("created_at", { ascending: false });
+    .select("id, code, label, target_url, signing_secret, is_active, retry_limit, timeout_ms, last_status, last_error, last_delivery_at, last_success_at");
+  if (tenantId) query = query.eq("tenant_id", tenantId);
+  const { data, error } = await query.order("created_at", { ascending: false });
   if (error) return [];
   return (data ?? []).map(toEndpoint).filter((endpoint: IntegrationEndpoint) => endpoint.isActive);
 }
 
 export async function getIntegrationEndpoints(): Promise<IntegrationEndpoint[]> {
   if (shouldUseDemoData() || !hasSupabaseEnv()) return [];
+  const tenant = await getTenantContext();
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("integration_endpoints")
     .select("id, code, label, target_url, signing_secret, is_active, retry_limit, timeout_ms, last_status, last_error, last_delivery_at, last_success_at")
     .order("created_at", { ascending: false });
+  if (tenant.tenantId) query = query.eq("tenant_id", tenant.tenantId);
+  const { data, error } = await query;
   if (error) return [];
   return (data ?? []).map(toEndpoint);
 }
 
 export async function getRecentIntegrationDeliveries(limit = 100): Promise<IntegrationDelivery[]> {
   if (shouldUseDemoData() || !hasSupabaseEnv()) return [];
+  const tenant = await getTenantContext();
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("integration_webhook_deliveries")
     .select("id, endpoint_id, endpoint_code, event_type, idempotency_key, status, attempt, http_status, error_message, pushed_at, processed_at")
     .order("pushed_at", { ascending: false })
     .limit(limit);
+  if (tenant.tenantId) query = query.eq("tenant_id", tenant.tenantId);
+  const { data, error } = await query;
   if (error) return [];
   return (data ?? []).map((row) => ({
     id: row.id,
@@ -135,11 +148,14 @@ export async function getRecentIntegrationDeliveries(limit = 100): Promise<Integ
 
 export async function getAutomationJobs(): Promise<AutomationJobState[]> {
   if (shouldUseDemoData() || !hasSupabaseEnv()) return [];
+  const tenant = await getTenantContext();
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("automation_jobs")
     .select("id, job_code, label, schedule_kind, is_active, last_run_at, last_status, last_error")
     .order("job_code", { ascending: true });
+  if (tenant.tenantId) query = query.eq("tenant_id", tenant.tenantId);
+  const { data, error } = await query;
   if (error) return [];
   return (data ?? []).map((row) => ({
     id: row.id,
@@ -155,12 +171,15 @@ export async function getAutomationJobs(): Promise<AutomationJobState[]> {
 
 export async function getRecentAutomationRuns(limit = 100): Promise<AutomationRun[]> {
   if (shouldUseDemoData() || !hasSupabaseEnv()) return [];
+  const tenant = await getTenantContext();
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("automation_runs")
     .select("id, job_code, status, triggered_by, started_at, finished_at, error_message")
     .order("started_at", { ascending: false })
     .limit(limit);
+  if (tenant.tenantId) query = query.eq("tenant_id", tenant.tenantId);
+  const { data, error } = await query;
   if (error) return [];
   return (data ?? []).map((row) => ({
     id: row.id,
@@ -264,7 +283,8 @@ export async function dispatchIntegrationEvent(params: {
 }) {
   if (shouldUseDemoData() || !hasSupabaseEnv()) return { total: 0, success: 0, failed: 0 };
   const supabase = await createSupabaseServerClient();
-  const activeEndpoints = await getActiveEndpointsWithClient(supabase);
+  const tenant = await getTenantContext();
+  const activeEndpoints = await getActiveEndpointsWithClient(supabase, tenant.tenantId);
   const key = params.idempotencyKey ?? randomUUID();
 
   let success = 0;
@@ -309,12 +329,14 @@ export async function runAutomationJob(params: {
   }
 
   const useSystemMode = params.triggeredBy.startsWith("system:");
+  const tenant = await getTenantContext();
   const supabase = useSystemMode ? createAdminClient() : await createSupabaseServerClient();
-  const { data: job } = await supabase
+  let jobQuery = supabase
     .from("automation_jobs")
     .select("id, job_code, is_active")
-    .eq("job_code", params.jobCode)
-    .maybeSingle();
+    .eq("job_code", params.jobCode);
+  if (tenant.tenantId) jobQuery = jobQuery.eq("tenant_id", tenant.tenantId);
+  const { data: job } = await jobQuery.maybeSingle();
 
   if (!job || !job.is_active) {
     return { ok: false, jobCode: params.jobCode, message: "Job niet actief of ontbreekt." };
@@ -328,21 +350,26 @@ export async function runAutomationJob(params: {
     triggered_by: params.triggeredBy,
     status: "running",
     started_at: new Date().toISOString(),
+    tenant_id: tenant.tenantId,
   });
 
   try {
     if (params.jobCode === "daily_kpi_digest") {
+      let reportsQuery = supabase
+        .from("medical_reports")
+        .select("*", { count: "exact", head: true });
+      let auditsQuery = supabase
+        .from("audit_logs")
+        .select("*", { count: "exact", head: true });
+      if (tenant.tenantId) {
+        reportsQuery = reportsQuery.eq("tenant_id", tenant.tenantId);
+        auditsQuery = auditsQuery.eq("tenant_id", tenant.tenantId);
+      }
       const [{ count: reports24h }, { count: audits24h }] = await Promise.all([
-        supabase
-          .from("medical_reports")
-          .select("*", { count: "exact", head: true })
-          .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
-        supabase
-          .from("audit_logs")
-          .select("*", { count: "exact", head: true })
-          .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+        reportsQuery.gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+        auditsQuery.gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
       ]);
-      const activeEndpoints = await getActiveEndpointsWithClient(supabase);
+      const activeEndpoints = await getActiveEndpointsWithClient(supabase, tenant.tenantId);
       const key = `daily-kpi:${new Date().toISOString().slice(0, 10)}`;
       for (const endpoint of activeEndpoints) {
         await runSingleDelivery({
@@ -356,11 +383,14 @@ export async function runAutomationJob(params: {
     }
 
     if (params.jobCode === "open_cases_reminder") {
-      const { count: openCases } = await supabase
+      let openCasesQuery = supabase
         .from("patient_cases")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "open");
-      const activeEndpoints = await getActiveEndpointsWithClient(supabase);
+        .select("*", { count: "exact", head: true });
+      if (tenant.tenantId) {
+        openCasesQuery = openCasesQuery.eq("tenant_id", tenant.tenantId);
+      }
+      const { count: openCases } = await openCasesQuery.eq("status", "open");
+      const activeEndpoints = await getActiveEndpointsWithClient(supabase, tenant.tenantId);
       const key = `open-cases:${new Date().toISOString().slice(0, 10)}`;
       for (const endpoint of activeEndpoints) {
         await runSingleDelivery({
