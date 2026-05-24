@@ -33,6 +33,9 @@ Tenant-isolatie CI-secrets (Repository secrets):
 - `E2E_TENANT_B_PATIENT_ID`
 - `E2E_TENANT_B_PATIENT_LABEL` (optioneel)
 
+Opmerking:
+- Zodra deze secrets ingevuld zijn, draait de job `e2e-cross-tenant-isolation` automatisch bij elke push naar `main`.
+
 ## 3) Deploy-policy
 
 - Workflow: `.github/workflows/vercel-production.yml`
