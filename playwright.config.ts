@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const devCommand = process.platform === "win32" ? "npm.cmd run dev" : "npm run dev";
+
 export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 30_000,
@@ -13,7 +15,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "npm.cmd run dev",
+    command: devCommand,
     url: "http://127.0.0.1:3000/login",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

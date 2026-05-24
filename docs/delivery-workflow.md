@@ -19,6 +19,7 @@ Dit project werkt met de volgende vaste flow.
   - `npm run lint`
   - `npm run build`
   - `npm run test:runtime`
+  - `npm run test:e2e`
 
 ## 3) Deploy-policy
 
@@ -55,3 +56,10 @@ Na elke deploy naar `main` moet de post-deploy smoke-check worden uitgevoerd:
 
 - Zie: `docs/governance-release-runbook.md`
 - Gebruik dit document als vaste release- en incidentprocedure.
+
+## 7) Security cadence
+
+- Workflow: `.github/workflows/security-audit.yml`
+- Frequentie:
+  - wekelijks automatisch
+  - manueel via `workflow_dispatch`

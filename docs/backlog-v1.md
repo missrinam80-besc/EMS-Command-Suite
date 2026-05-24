@@ -53,11 +53,11 @@
 
 ## Fase 7: live ops & kwaliteitsschaal
 
-- [ ] observability-baseline (`/api/health`, release monitoring en incident-triage flow)
-- [ ] e2e-suite uitbreiden (login, permissies, beheer kernflows)
-- [ ] performance review op kritieke queries + cachingkansen
-- [ ] security review (RLS/policy check, secret-rotatie, dependency audit)
-- [ ] rollback-drill en release-automatie verder dichtzetten
+- [x] observability-baseline (`/api/health`, release monitoring en incident-triage flow)
+- [x] e2e-suite uitbreiden (login, permissies, beheer kernflows)
+- [x] performance review op kritieke queries + cachingkansen
+- [x] security review (RLS/policy check, secret-rotatie, dependency audit)
+- [x] rollback-drill en release-automatie verder dichtzetten
 
 ## Fase-overgang (status 2026-05-23)
 

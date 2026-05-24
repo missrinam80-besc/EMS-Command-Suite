@@ -762,15 +762,27 @@ export async function getAdminAuditLogs(): Promise<AdminAuditLogRow[]> {
   }
 
   const actorMap = new Map((profiles ?? []).map((profile) => [profile.id, profile.full_name]));
-  const patientIds = (logs ?? [])
-    .filter((log) => log.target_type === "patient" && log.target_id)
-    .map((log) => log.target_id as string);
-  const patientCaseIds = (logs ?? [])
-    .filter((log) => log.target_type === "patient_case" && log.target_id)
-    .map((log) => log.target_id as string);
-  const reportIds = (logs ?? [])
-    .filter((log) => log.target_type === "medical_report" && log.target_id)
-    .map((log) => log.target_id as string);
+  const patientIds = [
+    ...new Set(
+      (logs ?? [])
+        .filter((log) => log.target_type === "patient" && log.target_id)
+        .map((log) => log.target_id as string),
+    ),
+  ];
+  const patientCaseIds = [
+    ...new Set(
+      (logs ?? [])
+        .filter((log) => log.target_type === "patient_case" && log.target_id)
+        .map((log) => log.target_id as string),
+    ),
+  ];
+  const reportIds = [
+    ...new Set(
+      (logs ?? [])
+        .filter((log) => log.target_type === "medical_report" && log.target_id)
+        .map((log) => log.target_id as string),
+    ),
+  ];
 
   const [
     { data: patients },
