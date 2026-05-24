@@ -57,3 +57,14 @@ Fase 12 is afgerond wanneer:
 - 12.5 afgerond: 2-step approval workflow voor gevoelige tenantmutaties (`tenant_update`, `tenant_status_toggle`).
 - 12.6 afgerond: audit chain metadata actief (requested/approved/rejected/executed actor + timestamps + reason).
 - 12.7 afgerond: beheer-UI voor open tenant change requests met approve/reject acties.
+
+## Productievalidatie (2026-05-25)
+
+- CI trigger op `main` gestart na secrets-configuratie voor delegated-admin lane.
+- Te bevestigen als PASS in GitHub Actions:
+  - `e2e-cross-tenant-isolation`
+  - `e2e-delegated-admin-permissions`
+- Handmatige productiecheck vereist:
+  - tenant-admin request aanmaken
+  - approver/global admin: 1x approve + 1x reject
+  - audit events aanwezig: `tenant_change_requested`, `tenant_change_approved_executed`, `tenant_change_rejected`
