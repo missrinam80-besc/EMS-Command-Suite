@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { requirePermission } from "@/lib/auth";
+import { requireAnyPermission } from "@/lib/auth";
 import { getIntelligenceSnapshot } from "@/lib/intelligence";
 
 export default async function BeheerIntelligencePage() {
-  await requirePermission("config.panel.read");
+  await requireAnyPermission(["config.database.read", "config.tenants.manage"]);
   const snapshot = await getIntelligenceSnapshot(30);
 
   const kpiCards = [

@@ -78,6 +78,7 @@ Dit document volgt de actuele runtime-permissies in de app en vervangt oudere ca
 - `/organisatie`: vereist minstens een van `meetings.read`, `minutes.read`
 - `/handboek`: vereist minstens een van `handbook.read`, `handbook.manage`
 - `/beheer`: vereist `config.panel.read`
+- `/beheer/intelligence` en `/beheer/integraties`: vereist `config.database.read` of `config.tenants.manage`
 
 ## Belangrijke enforcement-notes
 
@@ -86,6 +87,7 @@ Dit document volgt de actuele runtime-permissies in de app en vervangt oudere ca
 - Rechten worden geladen uit Supabase via:
   - directe rechten: `profile_permissions`
   - geerfde rechten: `rank_permissions`
+- Export-routes (`/api/exports/audit`, `/api/exports/reports`, `/api/exports/kpi`) zijn tenant-scoped voor niet-globale admins; alleen `config.database.read` mag tenant-overkoepelend exporteren.
 
 ## Specialisaties
 

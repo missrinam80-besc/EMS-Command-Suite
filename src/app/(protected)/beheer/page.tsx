@@ -41,7 +41,8 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
     hasPermission(session, "config.database.read") || hasPermission(session, "config.tenants.manage");
   const canManageRanks = hasPermission(session, "config.database.read");
   const canRequestDbRestart = hasPermission(session, "config.database.restart");
-  const canAccessAdvancedBoards = hasPermission(session, "config.database.read");
+  const canAccessScopedBoards =
+    hasPermission(session, "config.database.read") || hasPermission(session, "config.tenants.manage");
 
   const feedback = readFeedback(await searchParams);
   const [
@@ -133,7 +134,7 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
 
       <AdminInfrastructureBoard health={health} canRequestDatabaseRestart={canRequestDbRestart} />
 
-      {canAccessAdvancedBoards ? (
+      {canAccessScopedBoards ? (
         <section className="rounded-[1.5rem] border border-[var(--color-line)] bg-[var(--color-surface)] p-6">
         <p className="text-sm uppercase tracking-[0.16em] text-[var(--color-muted)]">
           Geavanceerd beheer
@@ -151,18 +152,22 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
           >
             Open rapporten & formulieren builder
           </Link>
-          <Link
-            href="/beheer/intelligence"
-            className="ml-3 inline-flex rounded-full border border-[var(--color-line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-soft)]"
-          >
-            Open intelligence dashboard
-          </Link>
-          <Link
-            href="/beheer/integraties"
-            className="ml-3 inline-flex rounded-full border border-[var(--color-line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-soft)]"
-          >
-            Open integraties & automations
-          </Link>
+          {canAccessScopedBoards ? (
+            <>
+              <Link
+                href="/beheer/intelligence"
+                className="ml-3 inline-flex rounded-full border border-[var(--color-line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-soft)]"
+              >
+                Open intelligence dashboard
+              </Link>
+              <Link
+                href="/beheer/integraties"
+                className="ml-3 inline-flex rounded-full border border-[var(--color-line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-soft)]"
+              >
+                Open integraties & automations
+              </Link>
+            </>
+          ) : null}
         </div>
         </section>
       ) : null}

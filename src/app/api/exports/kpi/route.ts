@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Niet aangemeld." }, { status: 401 });
   }
 
-  if (!hasAnyPermission(session, ["config.panel.read", "audit.read"])) {
+  if (!hasAnyPermission(session, ["config.database.read", "config.tenants.manage", "audit.read"])) {
     return NextResponse.json({ error: "Geen toegang tot KPI export." }, { status: 403 });
   }
 

@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth";
+import { requireAnyPermission } from "@/lib/auth";
 import { buildFeedbackUrl } from "@/lib/feedback";
 import { dispatchIntegrationEvent, runAutomationJob } from "@/lib/integrations";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
@@ -30,7 +30,7 @@ function checkbox(value: FormDataEntryValue | null) {
 
 export async function createIntegrationEndpointAction(formData: FormData) {
   try {
-    const session = await requirePermission("config.database.read");
+    const session = await requireAnyPermission(["config.database.read", "config.tenants.manage"]);
     const parsed = endpointSchema.parse({
       code: String(formData.get("code") ?? ""),
       label: String(formData.get("label") ?? ""),
@@ -41,7 +41,7 @@ export async function createIntegrationEndpointAction(formData: FormData) {
       isActive: checkbox(formData.get("isActive")),
     });
     const supabase = await createSupabaseServerClient();
-    const tenant = await getTenantContext();
+    const tenant = await getTenantContext({ forceSessionTenant: true });
     const { data, error } = await supabase
       .from("integration_endpoints")
       .insert({
@@ -77,7 +77,7 @@ export async function createIntegrationEndpointAction(formData: FormData) {
 
 export async function updateIntegrationEndpointAction(formData: FormData) {
   try {
-    const session = await requirePermission("config.database.read");
+    const session = await requireAnyPermission(["config.database.read", "config.tenants.manage"]);
     const parsed = endpointUpdateSchema.parse({
       id: String(formData.get("id") ?? ""),
       code: String(formData.get("code") ?? ""),
@@ -89,11 +89,14 @@ export async function updateIntegrationEndpointAction(formData: FormData) {
       isActive: checkbox(formData.get("isActive")),
     });
     const supabase = await createSupabaseServerClient();
-    const tenant = await getTenantContext();
+    const tenant = await getTenantContext({ forceSessionTenant: true });
     const scopedBefore = tenant.tenantId
       ? supabase.from("integration_endpoints").select("*").eq("id", parsed.id).eq("tenant_id", tenant.tenantId)
       : supabase.from("integration_endpoints").select("*").eq("id", parsed.id);
     const { data: before } = await scopedBefore.single();
+    if (!before) {
+      throw new Error("Geen toegang tot dit endpoint in de huidige tenant.");
+    }
     let updateQuery = supabase
       .from("integration_endpoints")
       .update({
@@ -129,7 +132,7 @@ export async function updateIntegrationEndpointAction(formData: FormData) {
 
 export async function testIntegrationDispatchAction(formData: FormData) {
   try {
-    await requirePermission("config.database.read");
+    await requireAnyPermission(["config.database.read", "config.tenants.manage"]);
     const eventType = String(formData.get("eventType") ?? "manual.test");
     const payload = {
       source: "beheer",
@@ -155,7 +158,7 @@ export async function testIntegrationDispatchAction(formData: FormData) {
 
 export async function runAutomationJobAction(formData: FormData) {
   try {
-    const session = await requirePermission("config.database.read");
+    const session = await requireAnyPermission(["config.database.read", "config.tenants.manage"]);
     const jobCodeRaw = String(formData.get("jobCode") ?? "");
     const jobCode = z.enum(["daily_kpi_digest", "open_cases_reminder"]).parse(jobCodeRaw);
     const result = await runAutomationJob({ jobCode, triggeredBy: session.userId });

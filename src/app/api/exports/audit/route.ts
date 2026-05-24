@@ -14,6 +14,19 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = await createSupabaseServerClient();
+  const isGlobalConfigAdmin = hasPermission(session, "config.database.read");
+  let actorTenantId: string | null = null;
+  if (!isGlobalConfigAdmin) {
+    const { data: actorProfile } = await supabase
+      .from("profiles")
+      .select("tenant_id")
+      .eq("id", session.userId)
+      .maybeSingle();
+    actorTenantId = actorProfile?.tenant_id ?? null;
+    if (!actorTenantId) {
+      return NextResponse.json({ error: "Geen tenantcontext voor audit export." }, { status: 403 });
+    }
+  }
   const from = request.nextUrl.searchParams.get("from");
   const to = request.nextUrl.searchParams.get("to");
   let query = supabase
@@ -21,6 +34,7 @@ export async function GET(request: NextRequest) {
     .select("id, action, summary, target_type, target_id, actor_profile_id, created_at")
     .order("created_at", { ascending: false })
     .limit(5000);
+  if (actorTenantId) query = query.eq("tenant_id", actorTenantId);
   if (from) query = query.gte("created_at", `${from}T00:00:00.000Z`);
   if (to) query = query.lte("created_at", `${to}T23:59:59.999Z`);
   const { data, error } = await query;

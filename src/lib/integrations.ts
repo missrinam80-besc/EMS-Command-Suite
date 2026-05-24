@@ -283,7 +283,7 @@ export async function dispatchIntegrationEvent(params: {
 }) {
   if (shouldUseDemoData() || !hasSupabaseEnv()) return { total: 0, success: 0, failed: 0 };
   const supabase = await createSupabaseServerClient();
-  const tenant = await getTenantContext();
+  const tenant = await getTenantContext({ forceSessionTenant: true });
   const activeEndpoints = await getActiveEndpointsWithClient(supabase, tenant.tenantId);
   const key = params.idempotencyKey ?? randomUUID();
 
@@ -329,7 +329,7 @@ export async function runAutomationJob(params: {
   }
 
   const useSystemMode = params.triggeredBy.startsWith("system:");
-  const tenant = await getTenantContext();
+  const tenant = await getTenantContext({ forceSessionTenant: true });
   const supabase = useSystemMode ? createAdminClient() : await createSupabaseServerClient();
   let jobQuery = supabase
     .from("automation_jobs")

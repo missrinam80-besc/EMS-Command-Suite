@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FeedbackBanner } from "@/components/feedback-banner";
-import { requirePermission } from "@/lib/auth";
+import { requireAnyPermission } from "@/lib/auth";
 import { readFeedback } from "@/lib/feedback";
 import {
   getAutomationJobs,
@@ -20,7 +20,7 @@ type IntegratiesPageProps = {
 };
 
 export default async function IntegratiesPage({ searchParams }: IntegratiesPageProps) {
-  await requirePermission("config.panel.read");
+  await requireAnyPermission(["config.database.read", "config.tenants.manage"]);
   const feedback = readFeedback(await searchParams);
   const [endpoints, deliveries, jobs, runs] = await Promise.all([
     getIntegrationEndpoints(),
