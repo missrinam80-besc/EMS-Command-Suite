@@ -7,7 +7,7 @@ import { AdminConfigCatalogs } from "@/components/admin-config-catalogs";
 import { AdminInfrastructureBoard } from "@/components/admin-infrastructure-board";
 import { AdminPlatformConfigBoard } from "@/components/admin-platform-config-board";
 import { AdminTenantOperationsBoard } from "@/components/admin-tenant-operations-board";
-import { requirePermission } from "@/lib/auth";
+import { hasPermission, requireAppSession, requirePermission } from "@/lib/auth";
 import {
   getAdminAuditLogs,
   getManagedBodyParts,
@@ -34,6 +34,14 @@ type BeheerPageProps = {
 
 export default async function BeheerPage({ searchParams }: BeheerPageProps) {
   await requirePermission("config.panel.read");
+  const session = await requireAppSession();
+  const canManageUsers =
+    hasPermission(session, "config.database.read") || hasPermission(session, "config.users.manage");
+  const canManageTenants =
+    hasPermission(session, "config.database.read") || hasPermission(session, "config.tenants.manage");
+  const canManageRanks = hasPermission(session, "config.database.read");
+  const canRequestDbRestart = hasPermission(session, "config.database.restart");
+  const canAccessAdvancedBoards = hasPermission(session, "config.database.read");
 
   const feedback = readFeedback(await searchParams);
   const [
@@ -123,9 +131,10 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
         </p>
       </section>
 
-      <AdminInfrastructureBoard health={health} />
+      <AdminInfrastructureBoard health={health} canRequestDatabaseRestart={canRequestDbRestart} />
 
-      <section className="rounded-[1.5rem] border border-[var(--color-line)] bg-[var(--color-surface)] p-6">
+      {canAccessAdvancedBoards ? (
+        <section className="rounded-[1.5rem] border border-[var(--color-line)] bg-[var(--color-surface)] p-6">
         <p className="text-sm uppercase tracking-[0.16em] text-[var(--color-muted)]">
           Geavanceerd beheer
         </p>
@@ -155,7 +164,8 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
             Open integraties & automations
           </Link>
         </div>
-      </section>
+        </section>
+      ) : null}
 
       <section className="rounded-[1.5rem] border border-[var(--color-line)] bg-[var(--color-surface)] p-6">
         <p className="text-sm uppercase tracking-[0.16em] text-[var(--color-muted)]">
@@ -183,14 +193,18 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
         </div>
       </section>
 
-      <AdminUserManagement
-        users={users}
-        permissions={permissions}
-        rankGroups={rankGroups}
-        serviceRoleConfigured={health.serviceRoleConfigured}
-        tenants={tenants}
-      />
-      <AdminRankGroups ranks={ranks} rankGroups={rankGroups} permissions={permissions} />
+      {canManageUsers ? (
+        <AdminUserManagement
+          users={users}
+          permissions={permissions}
+          rankGroups={rankGroups}
+          serviceRoleConfigured={health.serviceRoleConfigured}
+          tenants={tenants}
+        />
+      ) : null}
+      {canManageRanks ? (
+        <AdminRankGroups ranks={ranks} rankGroups={rankGroups} permissions={permissions} />
+      ) : null}
       <AdminConfigCatalogs
         warningBadges={warningBadges}
         patientStatuses={patientStatuses}
@@ -204,7 +218,7 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
         medicationCatalog={medicationCatalog}
         treatmentRules={treatmentRules}
       />
-      <AdminTenantOperationsBoard tenants={tenants} />
+      {canManageTenants ? <AdminTenantOperationsBoard tenants={tenants} canCreateTenant={canManageRanks} /> : null}
 
       <section className="w-full">
         <AdminAuditLogBoard logs={logs} />

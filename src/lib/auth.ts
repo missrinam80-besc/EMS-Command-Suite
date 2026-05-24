@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { hasSupabaseEnv, isDemoAuthEnabled } from "@/lib/env";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
-const ALL_PERMISSION_CODES = [
+export const ALL_PERMISSION_CODES = [
   "patients.read",
   "patients.create",
   "patients.update",

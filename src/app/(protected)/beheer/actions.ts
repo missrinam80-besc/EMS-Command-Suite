@@ -381,7 +381,7 @@ async function assertTenantScopedAccess(
 
   const actorTenantId = await getProfileTenantId(supabase, session.userId);
   if (actorTenantId !== targetTenantId) {
-    throw new Error("Geen toegang buiten je eigen tenant.");
+    throw new Error("Geen toegang: deze beheeractie is alleen toegestaan binnen je eigen tenant.");
   }
 }
 

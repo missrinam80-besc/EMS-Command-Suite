@@ -6,6 +6,7 @@ import type { InfrastructureHealth } from "@/lib/admin";
 
 type AdminInfrastructureBoardProps = {
   health: InfrastructureHealth;
+  canRequestDatabaseRestart: boolean;
 };
 
 function statusTone(ok: boolean) {
@@ -19,7 +20,10 @@ function blurValue(value: string | null, revealed: boolean) {
   return revealed ? value : "Verborgen";
 }
 
-export function AdminInfrastructureBoard({ health }: AdminInfrastructureBoardProps) {
+export function AdminInfrastructureBoard({
+  health,
+  canRequestDatabaseRestart,
+}: AdminInfrastructureBoardProps) {
   const [showSensitive, setShowSensitive] = useState(false);
 
   const cards = [
@@ -146,7 +150,8 @@ export function AdminInfrastructureBoard({ health }: AdminInfrastructureBoardPro
               <form action={requestDatabaseRestartAction} className="mt-3">
                 <button
                   type="submit"
-                  className="rounded-full border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-soft)]"
+                  disabled={!canRequestDatabaseRestart}
+                  className="rounded-full border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition enabled:hover:bg-[var(--color-accent-soft)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Database herstartverzoek registreren
                 </button>

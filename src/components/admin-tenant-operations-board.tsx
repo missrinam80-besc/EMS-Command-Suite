@@ -7,9 +7,13 @@ import {
 
 type AdminTenantOperationsBoardProps = {
   tenants: ManagedTenant[];
+  canCreateTenant: boolean;
 };
 
-export function AdminTenantOperationsBoard({ tenants }: AdminTenantOperationsBoardProps) {
+export function AdminTenantOperationsBoard({
+  tenants,
+  canCreateTenant,
+}: AdminTenantOperationsBoardProps) {
   return (
     <section className="rounded-[1.75rem] border border-[var(--color-line)] bg-[var(--color-panel-strong)] p-6 shadow-[var(--shadow-soft)]">
       <p className="text-sm uppercase tracking-[0.2em] text-[var(--color-muted)]">Fase 11</p>
@@ -22,6 +26,11 @@ export function AdminTenantOperationsBoard({ tenants }: AdminTenantOperationsBoa
         <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
           Nieuwe tenant
         </h3>
+        {!canCreateTenant ? (
+          <p className="mt-2 text-xs text-[var(--color-muted)]">
+            Alleen globale beheerders kunnen nieuwe tenants aanmaken.
+          </p>
+        ) : null}
         <form action={createManagedTenantAction} className="mt-3 grid gap-3 md:grid-cols-3">
           <input
             type="text"
@@ -39,7 +48,8 @@ export function AdminTenantOperationsBoard({ tenants }: AdminTenantOperationsBoa
           />
           <button
             type="submit"
-            className="rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:brightness-105"
+            disabled={!canCreateTenant}
+            className="rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition enabled:hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Tenant aanmaken
           </button>
