@@ -23,7 +23,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
 
       - name: Install Vercel CLI
@@ -44,7 +44,12 @@ jobs:
       - name: Deploy to production
         id: deploy
         run: |
-          DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          set -euo pipefail
+          DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --yes --token=${{ secrets.VERCEL_TOKEN }} | tr -d '\r' | tail -n 1)
+          if [[ ! "$DEPLOYMENT_URL" =~ ^https?:// ]]; then
+            echo "Unexpected deploy output: $DEPLOYMENT_URL"
+            exit 1
+          fi
           echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
