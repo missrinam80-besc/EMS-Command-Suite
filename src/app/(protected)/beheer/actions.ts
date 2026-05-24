@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth";
+import { hasPermission, requireAnyPermission, requirePermission, type AppSession } from "@/lib/auth";
 import { buildFeedbackUrl } from "@/lib/feedback";
 import { writeAuditLog } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -349,6 +349,50 @@ async function resolveActiveTenantId(
   return tenant.id;
 }
 
+async function getProfileTenantId(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  profileId: string,
+) {
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("tenant_id")
+    .eq("id", profileId)
+    .single();
+
+  if (error || !profile?.tenant_id) {
+    throw new Error("Tenantcontext ontbreekt voor deze gebruiker.");
+  }
+
+  return profile.tenant_id;
+}
+
+function isGlobalConfigAdmin(session: AppSession) {
+  return hasPermission(session, "config.database.read");
+}
+
+async function assertTenantScopedAccess(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  session: AppSession,
+  targetTenantId: string,
+) {
+  if (isGlobalConfigAdmin(session)) {
+    return;
+  }
+
+  const actorTenantId = await getProfileTenantId(supabase, session.userId);
+  if (actorTenantId !== targetTenantId) {
+    throw new Error("Geen toegang buiten je eigen tenant.");
+  }
+}
+
+async function requireUserAdminSession() {
+  return requireAnyPermission(["config.database.read", "config.users.manage"]);
+}
+
+async function requireTenantAdminSession() {
+  return requireAnyPermission(["config.database.read", "config.tenants.manage"]);
+}
+
 function parseUserPayload(formData: FormData) {
   return userSchema.parse({
     userId: String(formData.get("userId") ?? ""),
@@ -368,7 +412,7 @@ function parseUserPayload(formData: FormData) {
 
 export async function createManagedUserAction(formData: FormData) {
   try {
-    const session = await requirePermission("config.database.read");
+    const session = await requireUserAdminSession();
     const parsed = parseUserPayload(formData);
     const supabase = await createSupabaseServerClient();
 
@@ -385,6 +429,7 @@ export async function createManagedUserAction(formData: FormData) {
 
     const adminClient = createAdminClient();
     const tenantId = await resolveActiveTenantId(supabase, parsed.tenantId);
+    await assertTenantScopedAccess(supabase, session, tenantId);
     const { data: createdUser, error: createError } = await adminClient.auth.admin.createUser({
       email: parsed.email,
       password: parsed.password,
@@ -483,7 +528,7 @@ export async function createManagedUserAction(formData: FormData) {
 
 export async function updateManagedUserAction(formData: FormData) {
   try {
-    const session = await requirePermission("config.database.read");
+    const session = await requireUserAdminSession();
     const parsed = parseUserPayload(formData);
     const supabase = await createSupabaseServerClient();
 
@@ -512,6 +557,7 @@ export async function updateManagedUserAction(formData: FormData) {
 
     const adminClient = createAdminClient();
     const tenantId = await resolveActiveTenantId(supabase, parsed.tenantId);
+    await assertTenantScopedAccess(supabase, session, tenantId);
     const authUpdatePayload: {
       email?: string;
       password?: string;
@@ -627,13 +673,15 @@ export async function updateManagedUserAction(formData: FormData) {
 
 export async function updateManagedUserPermissionsAction(formData: FormData) {
   try {
-    const session = await requirePermission("config.database.read");
+    const session = await requireUserAdminSession();
     const parsed = permissionsSchema.parse({
       profileId: String(formData.get("profileId") ?? ""),
       permissionIds: formData.getAll("permissionIds").map(String),
     });
 
     const supabase = await createSupabaseServerClient();
+    const targetTenantId = await getProfileTenantId(supabase, parsed.profileId);
+    await assertTenantScopedAccess(supabase, session, targetTenantId);
     const { data: currentPermissions } = await supabase
       .from("profile_permissions")
       .select("permission_id")
@@ -1694,7 +1742,10 @@ export async function deleteFormSectionAction(formData: FormData) {
 
 export async function createManagedTenantAction(formData: FormData) {
   try {
-    const session = await requirePermission("config.database.read");
+    const session = await requireTenantAdminSession();
+    if (!isGlobalConfigAdmin(session)) {
+      throw new Error("Alleen globale beheerders kunnen nieuwe tenants aanmaken.");
+    }
     const parsed = tenantCreateSchema.parse({
       code: String(formData.get("code") ?? ""),
       label: String(formData.get("label") ?? ""),
@@ -1741,7 +1792,7 @@ export async function createManagedTenantAction(formData: FormData) {
 
 export async function toggleManagedTenantActiveAction(formData: FormData) {
   try {
-    const session = await requirePermission("config.database.read");
+    const session = await requireTenantAdminSession();
     const parsed = tenantToggleSchema.parse({
       tenantId: String(formData.get("tenantId") ?? ""),
       nextActive: checkboxToBoolean(formData.get("nextActive")),
@@ -1756,6 +1807,7 @@ export async function toggleManagedTenantActiveAction(formData: FormData) {
     if (currentError || !current) {
       throw new Error("Tenant niet gevonden.");
     }
+    await assertTenantScopedAccess(supabase, session, current.id);
     if (current.is_default && !parsed.nextActive) {
       throw new Error("Default tenant kan niet gedeactiveerd worden.");
     }
@@ -1796,7 +1848,7 @@ export async function toggleManagedTenantActiveAction(formData: FormData) {
 
 export async function updateManagedTenantAction(formData: FormData) {
   try {
-    const session = await requirePermission("config.database.read");
+    const session = await requireTenantAdminSession();
     const parsed = tenantUpdateSchema.parse({
       tenantId: String(formData.get("tenantId") ?? ""),
       code: String(formData.get("code") ?? ""),
@@ -1812,6 +1864,7 @@ export async function updateManagedTenantAction(formData: FormData) {
     if (currentError || !current) {
       throw new Error("Tenant niet gevonden.");
     }
+    await assertTenantScopedAccess(supabase, session, current.id);
     if (current.is_default && parsed.code !== current.code) {
       throw new Error("Default tenant code kan niet aangepast worden.");
     }

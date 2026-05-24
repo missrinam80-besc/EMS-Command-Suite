@@ -34,6 +34,8 @@ Dit document volgt de actuele runtime-permissies in de app en vervangt oudere ca
 - `config.forms.manage`
 - `config.badges.manage`
 - `config.patient_statuses.manage`
+- `config.users.manage`
+- `config.tenants.manage`
 - `config.database.read`
 - `config.database.restart`
 

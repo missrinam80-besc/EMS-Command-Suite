@@ -65,6 +65,8 @@ values
   ('config.forms.manage', 'Formulieren beheren', 'Formuliersjablonen en invulvelden beheren via de UI.'),
   ('config.badges.manage', 'Tags en badges beheren', 'Waarschuwingstags en badges beheren via de UI.'),
   ('config.patient_statuses.manage', 'Patientstatussen beheren', 'Patientstatussen beheren via de UI.'),
+  ('config.users.manage', 'Gebruikers per tenant beheren', 'Gebruikers beheren binnen de eigen tenant.'),
+  ('config.tenants.manage', 'Eigen tenant beheren', 'Eigen tenantgegevens beheren zonder globale database-admin rechten.'),
   ('config.database.read', 'Databasebeheer openen', 'Operationeel databasebeheer en configuratie beheren.'),
   ('config.database.restart', 'Database herstart beheren', 'Herstartverzoeken en reconnect-acties registreren via de UI.')
 on conflict (code) do update

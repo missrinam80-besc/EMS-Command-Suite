@@ -34,6 +34,8 @@ const ALL_PERMISSION_CODES = [
   "config.forms.manage",
   "config.badges.manage",
   "config.patient_statuses.manage",
+  "config.users.manage",
+  "config.tenants.manage",
   "config.database.read",
   "config.database.restart",
 ] as const;
