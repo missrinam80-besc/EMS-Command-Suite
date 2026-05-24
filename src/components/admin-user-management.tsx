@@ -131,6 +131,16 @@ export function AdminUserManagement({
     () => new Map(tenants.map((tenant) => [tenant.id, `${tenant.label} (${tenant.code})`])),
     [tenants],
   );
+  const activeTenants = useMemo(() => tenants.filter((tenant) => tenant.isActive), [tenants]);
+  const createDefaultTenantId = activeTenants.find((tenant) => tenant.isDefault)?.id ?? activeTenants[0]?.id ?? "";
+  const selectedUserTenantOption = selectedUser?.tenantId
+    ? tenants.find((tenant) => tenant.id === selectedUser.tenantId) ?? null
+    : null;
+  const editTenantOptions = selectedUserTenantOption?.isActive
+    ? activeTenants
+    : selectedUserTenantOption
+      ? [selectedUserTenantOption, ...activeTenants.filter((tenant) => tenant.id !== selectedUserTenantOption.id)]
+      : activeTenants;
 
   return (
     <>
@@ -346,10 +356,10 @@ export function AdminUserManagement({
               Tenant
               <select
                 name="tenantId"
-                defaultValue={tenants[0]?.id ?? ""}
+                defaultValue={createDefaultTenantId}
                 className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-accent)]"
               >
-                {tenants.map((tenant) => (
+                {activeTenants.map((tenant) => (
                   <option key={tenant.id} value={tenant.id}>
                     {tenant.label} ({tenant.code}){tenant.isDefault ? " · default" : ""}
                   </option>
@@ -487,12 +497,12 @@ export function AdminUserManagement({
               Tenant
               <select
                 name="tenantId"
-                defaultValue={selectedUser.tenantId ?? tenants[0]?.id ?? ""}
+                defaultValue={selectedUser.tenantId ?? createDefaultTenantId}
                 className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-accent)]"
               >
-                {tenants.map((tenant) => (
+                {editTenantOptions.map((tenant) => (
                   <option key={tenant.id} value={tenant.id}>
-                    {tenant.label} ({tenant.code}){tenant.isDefault ? " · default" : ""}
+                    {tenant.label} ({tenant.code}){tenant.isDefault ? " · default" : ""}{tenant.isActive ? "" : " · inactief"}
                   </option>
                 ))}
               </select>

@@ -323,6 +323,32 @@ async function ensureUniqueUserFields(
   }
 }
 
+async function resolveActiveTenantId(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  requestedTenantId?: string | null,
+) {
+  const normalizedTenantId = cleanOptional(requestedTenantId ?? undefined);
+  const fallbackTenantId = (await supabase.rpc("get_default_tenant_id")).data;
+  const tenantId = normalizedTenantId ?? fallbackTenantId;
+  if (!tenantId) {
+    throw new Error("Geen geldige tenant gevonden.");
+  }
+
+  const { data: tenant, error } = await supabase
+    .from("tenants")
+    .select("id, label, is_active")
+    .eq("id", tenantId)
+    .single();
+  if (error || !tenant) {
+    throw new Error("Gekozen tenant bestaat niet.");
+  }
+  if (!tenant.is_active) {
+    throw new Error(`Tenant ${tenant.label} is inactief en kan niet gekozen worden.`);
+  }
+
+  return tenant.id;
+}
+
 function parseUserPayload(formData: FormData) {
   return userSchema.parse({
     userId: String(formData.get("userId") ?? ""),
@@ -358,7 +384,7 @@ export async function createManagedUserAction(formData: FormData) {
     });
 
     const adminClient = createAdminClient();
-    const tenantId = cleanOptional(parsed.tenantId) ?? (await supabase.rpc("get_default_tenant_id")).data;
+    const tenantId = await resolveActiveTenantId(supabase, parsed.tenantId);
     const { data: createdUser, error: createError } = await adminClient.auth.admin.createUser({
       email: parsed.email,
       password: parsed.password,
@@ -485,7 +511,7 @@ export async function updateManagedUserAction(formData: FormData) {
       .single();
 
     const adminClient = createAdminClient();
-    const tenantId = cleanOptional(parsed.tenantId) ?? (await supabase.rpc("get_default_tenant_id")).data;
+    const tenantId = await resolveActiveTenantId(supabase, parsed.tenantId);
     const authUpdatePayload: {
       email?: string;
       password?: string;
