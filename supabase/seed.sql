@@ -186,6 +186,17 @@ set
   is_enabled = excluded.is_enabled,
   updated_at = now();
 
+insert into public.automation_jobs (job_code, label, schedule_kind, is_active)
+values
+  ('daily_kpi_digest', 'Dagelijkse KPI digest', 'daily', true),
+  ('open_cases_reminder', 'Open cases reminder', 'daily', true)
+on conflict (job_code) do update
+set
+  label = excluded.label,
+  schedule_kind = excluded.schedule_kind,
+  is_active = excluded.is_active,
+  updated_at = now();
+
 insert into public.navigation_items (
   item_key,
   parent_item_key,

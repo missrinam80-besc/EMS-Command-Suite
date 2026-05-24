@@ -1,0 +1,24 @@
+name: Automation Jobs
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 6 * * *"
+
+jobs:
+  run-jobs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger daily KPI digest
+        run: |
+          curl -sS -X POST "${{ secrets.AUTOMATION_BASE_URL }}/api/automation/run" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.AUTOMATION_CRON_TOKEN }}" \
+            -d '{"jobCode":"daily_kpi_digest"}'
+
+      - name: Trigger open cases reminder
+        run: |
+          curl -sS -X POST "${{ secrets.AUTOMATION_BASE_URL }}/api/automation/run" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.AUTOMATION_CRON_TOKEN }}" \
+            -d '{"jobCode":"open_cases_reminder"}'

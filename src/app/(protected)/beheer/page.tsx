@@ -144,6 +144,12 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
           >
             Open intelligence dashboard
           </Link>
+          <Link
+            href="/beheer/integraties"
+            className="ml-3 inline-flex rounded-full border border-[var(--color-line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-soft)]"
+          >
+            Open integraties & automations
+          </Link>
         </div>
       </section>
 

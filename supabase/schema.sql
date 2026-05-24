@@ -1776,3 +1776,140 @@ values
   ('meeting-files', 'meeting-files', false),
   ('images', 'images', false)
 on conflict (id) do nothing;
+
+create table if not exists public.integration_endpoints (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  label text not null,
+  target_url text not null,
+  signing_secret text not null,
+  retry_limit integer not null default 3 check (retry_limit between 1 and 5),
+  timeout_ms integer not null default 7000 check (timeout_ms between 1000 and 30000),
+  is_active boolean not null default true,
+  last_status text not null default 'idle' check (last_status in ('idle', 'success', 'failed')),
+  last_error text,
+  last_delivery_at timestamptz,
+  last_success_at timestamptz,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.integration_webhook_deliveries (
+  id uuid primary key default gen_random_uuid(),
+  endpoint_id uuid not null references public.integration_endpoints(id) on delete cascade,
+  endpoint_code text not null,
+  event_type text not null,
+  idempotency_key text not null,
+  payload jsonb not null default '{}'::jsonb,
+  status text not null default 'pending' check (status in ('pending', 'success', 'failed')),
+  attempt integer not null default 1 check (attempt >= 1),
+  http_status integer,
+  error_message text,
+  pushed_at timestamptz not null default now(),
+  processed_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (endpoint_id, idempotency_key)
+);
+
+create table if not exists public.automation_jobs (
+  id uuid primary key default gen_random_uuid(),
+  job_code text not null unique,
+  label text not null,
+  schedule_kind text not null default 'manual' check (schedule_kind in ('manual', 'daily', 'hourly')),
+  is_active boolean not null default true,
+  last_run_at timestamptz,
+  last_status text not null default 'idle' check (last_status in ('idle', 'success', 'failed')),
+  last_error text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.automation_runs (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null references public.automation_jobs(id) on delete cascade,
+  job_code text not null,
+  triggered_by text,
+  status text not null default 'running' check (status in ('running', 'success', 'failed')),
+  started_at timestamptz not null default now(),
+  finished_at timestamptz,
+  metrics jsonb not null default '{}'::jsonb,
+  error_message text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_integration_deliveries_event_type on public.integration_webhook_deliveries(event_type);
+create index if not exists idx_integration_deliveries_pushed_at on public.integration_webhook_deliveries(pushed_at desc);
+create index if not exists idx_automation_runs_job_started on public.automation_runs(job_code, started_at desc);
+
+drop trigger if exists trg_integration_endpoints_updated_at on public.integration_endpoints;
+create trigger trg_integration_endpoints_updated_at
+before update on public.integration_endpoints
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_automation_jobs_updated_at on public.automation_jobs;
+create trigger trg_automation_jobs_updated_at
+before update on public.automation_jobs
+for each row execute function public.set_updated_at();
+
+alter table public.integration_endpoints enable row level security;
+alter table public.integration_webhook_deliveries enable row level security;
+alter table public.automation_jobs enable row level security;
+alter table public.automation_runs enable row level security;
+
+drop policy if exists "integration_endpoints_read_directie" on public.integration_endpoints;
+create policy "integration_endpoints_read_directie"
+on public.integration_endpoints
+for select
+using (public.has_permission('config.database.read'));
+
+drop policy if exists "integration_endpoints_manage_directie" on public.integration_endpoints;
+create policy "integration_endpoints_manage_directie"
+on public.integration_endpoints
+for all
+using (public.has_permission('config.database.read'))
+with check (public.has_permission('config.database.read'));
+
+drop policy if exists "integration_deliveries_read_directie" on public.integration_webhook_deliveries;
+create policy "integration_deliveries_read_directie"
+on public.integration_webhook_deliveries
+for select
+using (public.has_permission('config.database.read'));
+
+drop policy if exists "integration_deliveries_insert_system" on public.integration_webhook_deliveries;
+create policy "integration_deliveries_insert_system"
+on public.integration_webhook_deliveries
+for insert
+with check (auth.uid() is not null);
+
+drop policy if exists "automation_jobs_read_directie" on public.automation_jobs;
+create policy "automation_jobs_read_directie"
+on public.automation_jobs
+for select
+using (public.has_permission('config.database.read'));
+
+drop policy if exists "automation_jobs_manage_directie" on public.automation_jobs;
+create policy "automation_jobs_manage_directie"
+on public.automation_jobs
+for all
+using (public.has_permission('config.database.read'))
+with check (public.has_permission('config.database.read'));
+
+drop policy if exists "automation_runs_read_directie" on public.automation_runs;
+create policy "automation_runs_read_directie"
+on public.automation_runs
+for select
+using (public.has_permission('config.database.read'));
+
+drop policy if exists "automation_runs_insert_system" on public.automation_runs;
+create policy "automation_runs_insert_system"
+on public.automation_runs
+for insert
+with check (auth.uid() is not null or triggered_by like 'system:%');
+
+drop policy if exists "automation_runs_update_directie" on public.automation_runs;
+create policy "automation_runs_update_directie"
+on public.automation_runs
+for update
+using (public.has_permission('config.database.read'))
+with check (public.has_permission('config.database.read'));

@@ -63,3 +63,12 @@ Na elke deploy naar `main` moet de post-deploy smoke-check worden uitgevoerd:
 - Frequentie:
   - wekelijks automatisch
   - manueel via `workflow_dispatch`
+
+## 8) Automation cadence
+
+- Workflow: `.github/workflows/automation-jobs.yml`
+- Vereiste GitHub secrets:
+  - `AUTOMATION_BASE_URL`
+  - `AUTOMATION_CRON_TOKEN`
+- Vereiste runtime env var in app:
+  - `AUTOMATION_CRON_TOKEN`

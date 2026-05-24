@@ -67,6 +67,14 @@
 - [x] export 2.0 met datumfilters (`/api/exports/audit`, `/api/exports/reports`, `/api/exports/kpi`)
 - [x] rolgebaseerde afscherming op intelligence/export endpoints
 
+## Fase 9: integraties & automatisatie
+
+- [x] webhook endpointbeheer in UI (`/beheer/integraties`)
+- [x] delivery logging + retry + idempotency sleutel
+- [x] automation jobs + run history (`daily_kpi_digest`, `open_cases_reminder`)
+- [x] API trigger voor jobs (`POST /api/automation/run`)
+- [x] scheduled automation workflow + beheer-trigger + audittrail
+
 ## Fase-overgang (status 2026-05-23)
 
 Afgerond in deze iteratie:
