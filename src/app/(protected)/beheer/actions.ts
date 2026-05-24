@@ -12,7 +12,14 @@ const userSchema = z.object({
   userId: z.string().trim().optional(),
   fullName: z.string().trim().min(3, "Naam is verplicht."),
   email: z.string().trim().email("E-mailadres is ongeldig."),
-  password: z.string().trim().min(8, "Wachtwoord moet minstens 8 tekens bevatten.").optional(),
+  password: z.preprocess(
+    (value) => {
+      if (typeof value !== "string") return value;
+      const trimmed = value.trim();
+      return trimmed.length === 0 ? undefined : trimmed;
+    },
+    z.string().min(8, "Wachtwoord moet minstens 8 tekens bevatten.").optional(),
+  ),
   citizenId: z.string().trim().min(1, "Citizenid is verplicht."),
   profileType: z.enum(["medical_staff", "administratie", "directie_assistent"]),
   rankId: z.string().trim().optional(),
