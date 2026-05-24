@@ -1189,7 +1189,7 @@ drop policy if exists "permissions_read_directie" on public.permissions;
 create policy "permissions_read_directie"
 on public.permissions
 for select
-using (public.has_permission('config.database.read'));
+using (auth.role() = 'authenticated' or public.has_permission('config.database.read'));
 
 drop policy if exists "rank_permissions_read_directie" on public.rank_permissions;
 create policy "rank_permissions_read_directie"
@@ -1274,7 +1274,7 @@ drop policy if exists "profile_permissions_read_directie" on public.profile_perm
 create policy "profile_permissions_read_directie"
 on public.profile_permissions
 for select
-using (public.has_permission('config.database.read'));
+using (public.has_permission('config.database.read') or profile_id = auth.uid());
 
 drop policy if exists "profile_specializations_read_basic_or_sensitive" on public.profile_specializations;
 create policy "profile_specializations_read_basic_or_sensitive"
@@ -1943,6 +1943,8 @@ create or replace function public.current_profile_tenant_id()
 returns uuid
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select tenant_id from public.profiles where id = auth.uid() limit 1
 $$;
