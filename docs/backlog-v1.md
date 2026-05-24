@@ -81,8 +81,8 @@
 - [x] tenant_id op kernentiteiten met indexes/backfill/defaulting
 - [x] intelligence tenant-aware context en scoping
 - [x] integraties/automation tenant-aware scoping
-- [ ] RLS policies van alle modules volledig tenant-restrictive maken
-- [ ] tweede tenant onboarding + cross-tenant regressietest
+- [x] RLS policies van alle modules volledig tenant-restrictive maken
+- [~] tweede tenant onboarding + cross-tenant regressietest (tenant aangemaakt, live account-per-tenant regressie nog gepland)
 
 ## Fase-overgang (status 2026-05-23)
 

@@ -1939,10 +1939,33 @@ as $$
   select id from public.tenants where is_default = true limit 1
 $$;
 
+create or replace function public.current_profile_tenant_id()
+returns uuid
+language sql
+stable
+as $$
+  select tenant_id from public.profiles where id = auth.uid() limit 1
+$$;
+
+create or replace function public.has_tenant_access(target_tenant_id uuid)
+returns boolean
+language sql
+stable
+as $$
+  select
+    target_tenant_id is not null
+    and (
+      public.has_permission('config.database.read')
+      or target_tenant_id = public.current_profile_tenant_id()
+    )
+$$;
+
 alter table public.profiles add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
 alter table public.patients add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
+alter table public.patient_badges add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
 alter table public.patient_cases add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
 alter table public.medical_reports add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
+alter table public.file_attachments add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
 alter table public.meetings add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
 alter table public.staff_evaluations add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
 alter table public.staff_absences add column if not exists tenant_id uuid references public.tenants(id) on delete set null;
@@ -1957,8 +1980,10 @@ alter table public.automation_runs add column if not exists tenant_id uuid refer
 
 alter table public.profiles alter column tenant_id set default public.get_default_tenant_id();
 alter table public.patients alter column tenant_id set default public.get_default_tenant_id();
+alter table public.patient_badges alter column tenant_id set default public.get_default_tenant_id();
 alter table public.patient_cases alter column tenant_id set default public.get_default_tenant_id();
 alter table public.medical_reports alter column tenant_id set default public.get_default_tenant_id();
+alter table public.file_attachments alter column tenant_id set default public.get_default_tenant_id();
 alter table public.meetings alter column tenant_id set default public.get_default_tenant_id();
 alter table public.staff_evaluations alter column tenant_id set default public.get_default_tenant_id();
 alter table public.staff_absences alter column tenant_id set default public.get_default_tenant_id();
@@ -1973,8 +1998,10 @@ alter table public.automation_runs alter column tenant_id set default public.get
 
 create index if not exists idx_profiles_tenant on public.profiles(tenant_id);
 create index if not exists idx_patients_tenant_created on public.patients(tenant_id, created_at desc);
+create index if not exists idx_patient_badges_tenant_assigned on public.patient_badges(tenant_id, assigned_at desc);
 create index if not exists idx_patient_cases_tenant_created on public.patient_cases(tenant_id, opened_at desc);
 create index if not exists idx_medical_reports_tenant_created on public.medical_reports(tenant_id, created_at desc);
+create index if not exists idx_file_attachments_tenant_created on public.file_attachments(tenant_id, created_at desc);
 create index if not exists idx_meetings_tenant_created on public.meetings(tenant_id, created_at desc);
 create index if not exists idx_audit_logs_tenant_created on public.audit_logs(tenant_id, created_at desc);
 create index if not exists idx_integration_endpoints_tenant_code on public.integration_endpoints(tenant_id, code);
@@ -1984,8 +2011,37 @@ create index if not exists idx_automation_runs_tenant_started on public.automati
 
 update public.profiles set tenant_id = public.get_default_tenant_id() where tenant_id is null;
 update public.patients set tenant_id = public.get_default_tenant_id() where tenant_id is null;
+update public.patient_badges pb
+set tenant_id = p.tenant_id
+from public.patients p
+where pb.tenant_id is null and p.id = pb.patient_id;
+update public.patient_badges set tenant_id = public.get_default_tenant_id() where tenant_id is null;
 update public.patient_cases set tenant_id = public.get_default_tenant_id() where tenant_id is null;
 update public.medical_reports set tenant_id = public.get_default_tenant_id() where tenant_id is null;
+update public.file_attachments fa
+set tenant_id = p.tenant_id
+from public.patients p
+where fa.tenant_id is null
+  and fa.target_type = 'patient'
+  and fa.target_id = p.id;
+update public.file_attachments fa
+set tenant_id = mr.tenant_id
+from public.medical_reports mr
+where fa.tenant_id is null
+  and fa.target_type = 'medical_report'
+  and fa.target_id = mr.id;
+update public.file_attachments fa
+set tenant_id = m.tenant_id
+from public.meetings m
+where fa.tenant_id is null
+  and fa.target_type = 'meeting'
+  and fa.target_id = m.id;
+update public.file_attachments fa
+set tenant_id = pr.tenant_id
+from public.profiles pr
+where fa.tenant_id is null
+  and fa.uploaded_by = pr.id;
+update public.file_attachments set tenant_id = public.get_default_tenant_id() where tenant_id is null;
 update public.meetings set tenant_id = public.get_default_tenant_id() where tenant_id is null;
 update public.staff_evaluations set tenant_id = public.get_default_tenant_id() where tenant_id is null;
 update public.staff_absences set tenant_id = public.get_default_tenant_id() where tenant_id is null;
@@ -1997,3 +2053,139 @@ update public.integration_endpoints set tenant_id = public.get_default_tenant_id
 update public.integration_webhook_deliveries set tenant_id = public.get_default_tenant_id() where tenant_id is null;
 update public.automation_jobs set tenant_id = public.get_default_tenant_id() where tenant_id is null;
 update public.automation_runs set tenant_id = public.get_default_tenant_id() where tenant_id is null;
+
+drop policy if exists "profiles_tenant_restrictive" on public.profiles;
+create policy "profiles_tenant_restrictive"
+on public.profiles
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));
+
+drop policy if exists "patients_tenant_restrictive" on public.patients;
+create policy "patients_tenant_restrictive"
+on public.patients
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));
+
+drop policy if exists "patient_cases_tenant_restrictive" on public.patient_cases;
+create policy "patient_cases_tenant_restrictive"
+on public.patient_cases
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));
+
+drop policy if exists "medical_reports_tenant_restrictive" on public.medical_reports;
+create policy "medical_reports_tenant_restrictive"
+on public.medical_reports
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));
+
+drop policy if exists "patient_badges_tenant_restrictive" on public.patient_badges;
+create policy "patient_badges_tenant_restrictive"
+on public.patient_badges
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));
+
+drop policy if exists "file_attachments_tenant_restrictive" on public.file_attachments;
+create policy "file_attachments_tenant_restrictive"
+on public.file_attachments
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));
+
+drop policy if exists "meetings_tenant_restrictive" on public.meetings;
+create policy "meetings_tenant_restrictive"
+on public.meetings
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));
+
+drop policy if exists "meeting_action_items_tenant_restrictive" on public.meeting_action_items;
+create policy "meeting_action_items_tenant_restrictive"
+on public.meeting_action_items
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));
+
+drop policy if exists "staff_evaluations_tenant_restrictive" on public.staff_evaluations;
+create policy "staff_evaluations_tenant_restrictive"
+on public.staff_evaluations
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));
+
+drop policy if exists "staff_absences_tenant_restrictive" on public.staff_absences;
+create policy "staff_absences_tenant_restrictive"
+on public.staff_absences
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));
+
+drop policy if exists "staff_rewards_tenant_restrictive" on public.staff_rewards;
+create policy "staff_rewards_tenant_restrictive"
+on public.staff_rewards
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));
+
+drop policy if exists "staff_strikepoint_entries_tenant_restrictive" on public.staff_strikepoint_entries;
+create policy "staff_strikepoint_entries_tenant_restrictive"
+on public.staff_strikepoint_entries
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));
+
+drop policy if exists "audit_logs_tenant_restrictive" on public.audit_logs;
+create policy "audit_logs_tenant_restrictive"
+on public.audit_logs
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));
+
+drop policy if exists "integration_endpoints_tenant_restrictive" on public.integration_endpoints;
+create policy "integration_endpoints_tenant_restrictive"
+on public.integration_endpoints
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));
+
+drop policy if exists "integration_deliveries_tenant_restrictive" on public.integration_webhook_deliveries;
+create policy "integration_deliveries_tenant_restrictive"
+on public.integration_webhook_deliveries
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));
+
+drop policy if exists "automation_jobs_tenant_restrictive" on public.automation_jobs;
+create policy "automation_jobs_tenant_restrictive"
+on public.automation_jobs
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));
+
+drop policy if exists "automation_runs_tenant_restrictive" on public.automation_runs;
+create policy "automation_runs_tenant_restrictive"
+on public.automation_runs
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));

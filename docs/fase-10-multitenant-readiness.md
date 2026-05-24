@@ -34,11 +34,26 @@ Opgeleverd in deze iteratie:
 - integratie- en automation-queries/inserts tenant-scoped
 - automation runs bewaren tenant context
 
+Aanvullend opgeleverd:
+
+1. Tenant-restrictive RLS uitgebreid naar resterende kernentiteiten:
+- `patient_badges`
+- `file_attachments`
+- `staff_evaluations`
+- `staff_absences`
+- `staff_rewards`
+- `staff_strikepoint_entries`
+
+2. Tenant-backfill voor afgeleide tabellen:
+- `patient_badges` via `patients.tenant_id`
+- `file_attachments` via `patients` / `medical_reports` / `meetings` / `uploaded_by`
+
+3. Tweede tenant onboarding gestart:
+- `tenant_b` aangemaakt op productie voor isolatietesten
+
 Nog open voor volledige fase-10 afronding:
 
-1. Volledige RLS-conversie naar tenant-restrictive policies voor alle modules
-2. Onboarding en validatie van een tweede tenant
-3. Cross-tenant regressietests (geen data-leak tussen tenants)
+1. Cross-tenant regressietests met twee echte tenant-accounts (interactieve loginflows, data-isolatie UI/API)
 
 Benodigd voor live activatie:
 
