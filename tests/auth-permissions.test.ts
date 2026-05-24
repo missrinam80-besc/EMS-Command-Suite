@@ -5,4 +5,5 @@ import { ALL_PERMISSION_CODES } from "@/lib/auth";
 test("tenant admin permission codes are available in runtime allowlist", () => {
   assert.ok(ALL_PERMISSION_CODES.includes("config.users.manage"));
   assert.ok(ALL_PERMISSION_CODES.includes("config.tenants.manage"));
+  assert.ok(ALL_PERMISSION_CODES.includes("config.tenant_approvals.manage"));
 });

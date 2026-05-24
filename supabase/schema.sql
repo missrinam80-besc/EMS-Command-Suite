@@ -2191,3 +2191,58 @@ as restrictive
 for all
 using (public.has_tenant_access(tenant_id))
 with check (public.has_tenant_access(tenant_id));
+
+create table if not exists public.tenant_change_requests (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  request_type text not null check (request_type in ('tenant_update', 'tenant_status_toggle')),
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected', 'executed')),
+  reason text null,
+  payload jsonb not null default '{}'::jsonb,
+  requested_by uuid not null references public.profiles(id) on delete restrict,
+  approved_by uuid null references public.profiles(id) on delete set null,
+  rejected_by uuid null references public.profiles(id) on delete set null,
+  executed_by uuid null references public.profiles(id) on delete set null,
+  approved_at timestamptz null,
+  rejected_at timestamptz null,
+  executed_at timestamptz null,
+  execution_error text null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trg_tenant_change_requests_updated_at on public.tenant_change_requests;
+create trigger trg_tenant_change_requests_updated_at
+before update on public.tenant_change_requests
+for each row execute function public.set_updated_at();
+
+create index if not exists idx_tenant_change_requests_tenant_status
+on public.tenant_change_requests(tenant_id, status, created_at desc);
+create index if not exists idx_tenant_change_requests_status_created
+on public.tenant_change_requests(status, created_at desc);
+
+alter table public.tenant_change_requests enable row level security;
+
+drop policy if exists "tenant_change_requests_tenant_restrictive" on public.tenant_change_requests;
+create policy "tenant_change_requests_tenant_restrictive"
+on public.tenant_change_requests
+as restrictive
+for all
+using (public.has_tenant_access(tenant_id))
+with check (public.has_tenant_access(tenant_id));
+
+drop policy if exists "tenant_change_requests_insert_manage" on public.tenant_change_requests;
+create policy "tenant_change_requests_insert_manage"
+on public.tenant_change_requests
+for insert
+with check (
+  public.has_permission('config.tenants.manage')
+  or public.has_permission('config.database.read')
+);
+
+drop policy if exists "tenant_change_requests_approve_manage" on public.tenant_change_requests;
+create policy "tenant_change_requests_approve_manage"
+on public.tenant_change_requests
+for update
+using (public.has_permission('config.tenant_approvals.manage') or public.has_permission('config.database.read'))
+with check (public.has_permission('config.tenant_approvals.manage') or public.has_permission('config.database.read'));

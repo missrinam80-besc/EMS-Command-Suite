@@ -20,6 +20,7 @@ import {
   getManagedPatientStatuses,
   getManagedRanks,
   getManagedTreatmentRules,
+  getTenantChangeRequests,
   getManagedTenants,
   getManagedUsers,
   getManagedWarningBadges,
@@ -43,6 +44,9 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
   const canRequestDbRestart = hasPermission(session, "config.database.restart");
   const canAccessScopedBoards =
     hasPermission(session, "config.database.read") || hasPermission(session, "config.tenants.manage");
+  const canApproveTenantChanges =
+    hasPermission(session, "config.database.read") ||
+    hasPermission(session, "config.tenant_approvals.manage");
 
   const feedback = readFeedback(await searchParams);
   const [
@@ -61,6 +65,7 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
     medicationCatalog,
     treatmentRules,
     tenants,
+    tenantChangeRequests,
     logs,
   ] = await Promise.all([
     getInfrastructureHealth(),
@@ -78,6 +83,7 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
     getManagedMedicationCatalog(),
     getManagedTreatmentRules(),
     getManagedTenants(),
+    getTenantChangeRequests(),
     getAdminAuditLogs(),
   ]);
 
@@ -223,7 +229,14 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
         medicationCatalog={medicationCatalog}
         treatmentRules={treatmentRules}
       />
-      {canManageTenants ? <AdminTenantOperationsBoard tenants={tenants} canCreateTenant={canManageRanks} /> : null}
+      {canManageTenants ? (
+        <AdminTenantOperationsBoard
+          tenants={tenants}
+          canCreateTenant={canManageRanks}
+          canApproveRequests={canApproveTenantChanges}
+          tenantChangeRequests={tenantChangeRequests}
+        />
+      ) : null}
 
       <section className="w-full">
         <AdminAuditLogBoard logs={logs} />

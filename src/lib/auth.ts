@@ -36,6 +36,7 @@ export const ALL_PERMISSION_CODES = [
   "config.patient_statuses.manage",
   "config.users.manage",
   "config.tenants.manage",
+  "config.tenant_approvals.manage",
   "config.database.read",
   "config.database.restart",
 ] as const;

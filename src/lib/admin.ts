@@ -197,6 +197,27 @@ export type ManagedTenant = {
   updatedAt: string;
 };
 
+export type TenantChangeRequest = {
+  id: string;
+  tenantId: string;
+  tenantCode: string | null;
+  tenantLabel: string | null;
+  requestType: "tenant_update" | "tenant_status_toggle";
+  status: "pending" | "approved" | "rejected" | "executed";
+  reason: string | null;
+  payload: Record<string, unknown>;
+  requestedBy: string;
+  approvedBy: string | null;
+  rejectedBy: string | null;
+  executedBy: string | null;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+  executedAt: string | null;
+  executionError: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 function uniquePermissions(codes: string[]): AppPermission[] {
   return [...new Set(codes)].filter((code): code is AppPermission => Boolean(code));
 }
@@ -703,6 +724,56 @@ export async function getManagedTenants(): Promise<ManagedTenant[]> {
     createdAt: tenant.created_at,
     updatedAt: tenant.updated_at,
   }));
+}
+
+export async function getTenantChangeRequests(): Promise<TenantChangeRequest[]> {
+  if (shouldUseDemoData() || !hasSupabaseEnv()) {
+    return [];
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("tenant_change_requests")
+    .select(
+      "id, tenant_id, request_type, status, reason, payload, requested_by, approved_by, rejected_by, executed_by, approved_at, rejected_at, executed_at, execution_error, created_at, updated_at, tenants(code, label)",
+    )
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (error) {
+    return [];
+  }
+
+  return (data ?? []).map((row) => {
+    const tenantRelation = row.tenants as
+      | { code?: string; label?: string }
+      | { code?: string; label?: string }[]
+      | null;
+    const tenant = Array.isArray(tenantRelation) ? tenantRelation[0] : tenantRelation;
+    return {
+      id: row.id,
+      tenantId: row.tenant_id,
+      tenantCode: tenant?.code ?? null,
+      tenantLabel: tenant?.label ?? null,
+      requestType: row.request_type as TenantChangeRequest["requestType"],
+      status: row.status as TenantChangeRequest["status"],
+      reason: row.reason ?? null,
+      payload:
+        row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
+          ? (row.payload as Record<string, unknown>)
+          : {},
+      requestedBy: row.requested_by,
+      approvedBy: row.approved_by ?? null,
+      rejectedBy: row.rejected_by ?? null,
+      executedBy: row.executed_by ?? null,
+      approvedAt: row.approved_at ?? null,
+      rejectedAt: row.rejected_at ?? null,
+      executedAt: row.executed_at ?? null,
+      executionError: row.execution_error ?? null,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    } satisfies TenantChangeRequest;
+  });
 }
 
 export async function getInfrastructureHealth(): Promise<InfrastructureHealth> {

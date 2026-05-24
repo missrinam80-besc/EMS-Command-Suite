@@ -1,6 +1,6 @@
 # Fase 12: Delegated Tenant Administration & Approval Workflows
 
-Status: gestart op 2026-05-24
+Status: afgerond op 2026-05-24
 
 ## Doel
 
@@ -54,3 +54,6 @@ Fase 12 is afgerond wanneer:
 - 12.2 afgerond: UI-gating voor user/tenant/rank/infra acties.
 - 12.3 afgerond: integraties/intelligence/export API tenant-aware.
 - 12.4 afgerond: e2e delegated permission-regressies toegevoegd in CI (aparte job met secrets-gate).
+- 12.5 afgerond: 2-step approval workflow voor gevoelige tenantmutaties (`tenant_update`, `tenant_status_toggle`).
+- 12.6 afgerond: audit chain metadata actief (requested/approved/rejected/executed actor + timestamps + reason).
+- 12.7 afgerond: beheer-UI voor open tenant change requests met approve/reject acties.

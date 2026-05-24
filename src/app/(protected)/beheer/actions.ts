@@ -194,6 +194,7 @@ const tenantCreateSchema = z.object({
 const tenantToggleSchema = z.object({
   tenantId: z.string().trim().min(1, "Tenant ontbreekt."),
   nextActive: z.boolean(),
+  reason: z.string().trim().max(500).optional(),
 });
 
 const tenantUpdateSchema = z.object({
@@ -204,6 +205,17 @@ const tenantUpdateSchema = z.object({
     .min(2, "Tenant code is verplicht.")
     .regex(/^[a-z0-9_]+$/, "Gebruik enkel kleine letters, cijfers en underscore."),
   label: z.string().trim().min(2, "Tenant label is verplicht."),
+  reason: z.string().trim().max(500).optional(),
+});
+
+const tenantApprovalSchema = z.object({
+  requestId: z.string().trim().min(1, "Request ontbreekt."),
+  reason: z.string().trim().max(500).optional(),
+});
+
+const tenantRejectSchema = z.object({
+  requestId: z.string().trim().min(1, "Request ontbreekt."),
+  reason: z.string().trim().min(3, "Reden is verplicht bij afwijzen.").max(500),
 });
 
 function checkboxToBoolean(value: FormDataEntryValue | null) {
@@ -391,6 +403,53 @@ async function requireUserAdminSession() {
 
 async function requireTenantAdminSession() {
   return requireAnyPermission(["config.database.read", "config.tenants.manage"]);
+}
+
+async function requireTenantApprovalSession() {
+  return requireAnyPermission(["config.database.read", "config.tenant_approvals.manage"]);
+}
+
+async function createTenantChangeRequest(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  params: {
+    session: AppSession;
+    tenantId: string;
+    requestType: "tenant_update" | "tenant_status_toggle";
+    reason?: string | null;
+    payload: Record<string, unknown>;
+  },
+) {
+  const { data: inserted, error } = await supabase
+    .from("tenant_change_requests")
+    .insert({
+      tenant_id: params.tenantId,
+      request_type: params.requestType,
+      status: "pending",
+      reason: cleanOptional(params.reason ?? undefined),
+      payload: params.payload,
+      requested_by: params.session.userId,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  await writeAdminAudit(supabase, {
+    targetType: "tenant_change_request",
+    targetId: inserted?.id ?? null,
+    action: "tenant_change_requested",
+    summary: `Tenantwijzigingsverzoek aangemaakt (${params.requestType}).`,
+    afterState: {
+      tenantId: params.tenantId,
+      requestType: params.requestType,
+      reason: cleanOptional(params.reason ?? undefined),
+      payload: params.payload,
+    },
+    changedFields: ["status", "reason", "payload"],
+    adminArea: "tenant_approvals",
+    updatedBy: params.session.userId,
+  });
 }
 
 function parseUserPayload(formData: FormData) {
@@ -1796,6 +1855,7 @@ export async function toggleManagedTenantActiveAction(formData: FormData) {
     const parsed = tenantToggleSchema.parse({
       tenantId: String(formData.get("tenantId") ?? ""),
       nextActive: checkboxToBoolean(formData.get("nextActive")),
+      reason: String(formData.get("reason") ?? ""),
     });
     const supabase = await createSupabaseServerClient();
 
@@ -1810,6 +1870,21 @@ export async function toggleManagedTenantActiveAction(formData: FormData) {
     await assertTenantScopedAccess(supabase, session, current.id);
     if (current.is_default && !parsed.nextActive) {
       throw new Error("Default tenant kan niet gedeactiveerd worden.");
+    }
+
+    if (!isGlobalConfigAdmin(session)) {
+      await createTenantChangeRequest(supabase, {
+        session,
+        tenantId: parsed.tenantId,
+        requestType: "tenant_status_toggle",
+        reason: parsed.reason ?? null,
+        payload: {
+          tenantId: parsed.tenantId,
+          nextActive: parsed.nextActive,
+          before: current,
+        },
+      });
+      redirect(buildFeedbackUrl("/beheer", "success", "Tenantstatus wijziging ter goedkeuring ingediend."));
     }
 
     const { data: updated, error } = await supabase
@@ -1853,6 +1928,7 @@ export async function updateManagedTenantAction(formData: FormData) {
       tenantId: String(formData.get("tenantId") ?? ""),
       code: String(formData.get("code") ?? ""),
       label: String(formData.get("label") ?? ""),
+      reason: String(formData.get("reason") ?? ""),
     });
     const supabase = await createSupabaseServerClient();
 
@@ -1867,6 +1943,22 @@ export async function updateManagedTenantAction(formData: FormData) {
     await assertTenantScopedAccess(supabase, session, current.id);
     if (current.is_default && parsed.code !== current.code) {
       throw new Error("Default tenant code kan niet aangepast worden.");
+    }
+
+    if (!isGlobalConfigAdmin(session)) {
+      await createTenantChangeRequest(supabase, {
+        session,
+        tenantId: parsed.tenantId,
+        requestType: "tenant_update",
+        reason: parsed.reason ?? null,
+        payload: {
+          tenantId: parsed.tenantId,
+          code: parsed.code,
+          label: parsed.label,
+          before: current,
+        },
+      });
+      redirect(buildFeedbackUrl("/beheer", "success", "Tenant update ter goedkeuring ingediend."));
     }
 
     const { data: updated, error } = await supabase
@@ -1898,6 +1990,142 @@ export async function updateManagedTenantAction(formData: FormData) {
         "/beheer",
         "error",
         error instanceof Error ? error.message : "Tenant kon niet worden bijgewerkt.",
+      ),
+    );
+  }
+}
+
+export async function approveTenantChangeRequestAction(formData: FormData) {
+  try {
+    const session = await requireTenantApprovalSession();
+    const parsed = tenantApprovalSchema.parse({
+      requestId: String(formData.get("requestId") ?? ""),
+      reason: String(formData.get("reason") ?? ""),
+    });
+    const supabase = await createSupabaseServerClient();
+    const { data: request, error: requestError } = await supabase
+      .from("tenant_change_requests")
+      .select("id, tenant_id, request_type, status, payload, requested_by")
+      .eq("id", parsed.requestId)
+      .single();
+    if (requestError || !request) throw new Error("Approval request niet gevonden.");
+    if (request.status !== "pending") throw new Error("Alleen pending requests kunnen goedgekeurd worden.");
+    if (request.requested_by === session.userId) {
+      throw new Error("Eigen aanvraag kan niet door dezelfde gebruiker goedgekeurd worden.");
+    }
+
+    const payload =
+      request.payload && typeof request.payload === "object" && !Array.isArray(request.payload)
+        ? (request.payload as Record<string, unknown>)
+        : {};
+
+    if (request.request_type === "tenant_status_toggle") {
+      const nextActive = Boolean(payload.nextActive);
+      const { error } = await supabase
+        .from("tenants")
+        .update({ is_active: nextActive })
+        .eq("id", request.tenant_id);
+      if (error) throw new Error(error.message);
+    } else if (request.request_type === "tenant_update") {
+      const code = String(payload.code ?? "");
+      const label = String(payload.label ?? "");
+      if (!code || !label) throw new Error("Ongeldige tenant update payload.");
+      const { error } = await supabase
+        .from("tenants")
+        .update({ code, label })
+        .eq("id", request.tenant_id);
+      if (error) throw new Error(error.message);
+    }
+
+    const { error: updateError } = await supabase
+      .from("tenant_change_requests")
+      .update({
+        status: "executed",
+        approved_by: session.userId,
+        approved_at: new Date().toISOString(),
+        executed_by: session.userId,
+        executed_at: new Date().toISOString(),
+        execution_error: null,
+        reason: cleanOptional(parsed.reason) ?? null,
+      })
+      .eq("id", request.id);
+    if (updateError) throw new Error(updateError.message);
+
+    await writeAdminAudit(supabase, {
+      targetType: "tenant_change_request",
+      targetId: request.id,
+      action: "tenant_change_approved_executed",
+      summary: `Tenantwijzigingsverzoek goedgekeurd en uitgevoerd (${request.request_type}).`,
+      afterState: {
+        requestType: request.request_type,
+        tenantId: request.tenant_id,
+        approvalReason: cleanOptional(parsed.reason),
+      },
+      changedFields: ["status", "approved_by", "approved_at", "executed_by", "executed_at"],
+      adminArea: "tenant_approvals",
+      updatedBy: session.userId,
+    });
+
+    redirect(buildFeedbackUrl("/beheer", "success", "Tenantwijzigingsverzoek goedgekeurd en uitgevoerd."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer",
+        "error",
+        error instanceof Error ? error.message : "Tenantwijzigingsverzoek kon niet worden goedgekeurd.",
+      ),
+    );
+  }
+}
+
+export async function rejectTenantChangeRequestAction(formData: FormData) {
+  try {
+    const session = await requireTenantApprovalSession();
+    const parsed = tenantRejectSchema.parse({
+      requestId: String(formData.get("requestId") ?? ""),
+      reason: String(formData.get("reason") ?? ""),
+    });
+    const supabase = await createSupabaseServerClient();
+    const { data: request, error: requestError } = await supabase
+      .from("tenant_change_requests")
+      .select("id, request_type, status, requested_by")
+      .eq("id", parsed.requestId)
+      .single();
+    if (requestError || !request) throw new Error("Approval request niet gevonden.");
+    if (request.status !== "pending") throw new Error("Alleen pending requests kunnen afgewezen worden.");
+    if (request.requested_by === session.userId) {
+      throw new Error("Eigen aanvraag kan niet door dezelfde gebruiker afgewezen worden.");
+    }
+
+    const { error } = await supabase
+      .from("tenant_change_requests")
+      .update({
+        status: "rejected",
+        rejected_by: session.userId,
+        rejected_at: new Date().toISOString(),
+        reason: parsed.reason,
+      })
+      .eq("id", request.id);
+    if (error) throw new Error(error.message);
+
+    await writeAdminAudit(supabase, {
+      targetType: "tenant_change_request",
+      targetId: request.id,
+      action: "tenant_change_rejected",
+      summary: `Tenantwijzigingsverzoek afgewezen (${request.request_type}).`,
+      afterState: { reason: parsed.reason },
+      changedFields: ["status", "rejected_by", "rejected_at", "reason"],
+      adminArea: "tenant_approvals",
+      updatedBy: session.userId,
+    });
+
+    redirect(buildFeedbackUrl("/beheer", "success", "Tenantwijzigingsverzoek afgewezen."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer",
+        "error",
+        error instanceof Error ? error.message : "Tenantwijzigingsverzoek kon niet worden afgewezen.",
       ),
     );
   }

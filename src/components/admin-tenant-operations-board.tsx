@@ -1,18 +1,25 @@
 import type { ManagedTenant } from "@/lib/admin";
 import {
+  approveTenantChangeRequestAction,
   createManagedTenantAction,
+  rejectTenantChangeRequestAction,
   toggleManagedTenantActiveAction,
   updateManagedTenantAction,
 } from "@/app/(protected)/beheer/actions";
+import type { TenantChangeRequest } from "@/lib/admin";
 
 type AdminTenantOperationsBoardProps = {
   tenants: ManagedTenant[];
   canCreateTenant: boolean;
+  canApproveRequests: boolean;
+  tenantChangeRequests: TenantChangeRequest[];
 };
 
 export function AdminTenantOperationsBoard({
   tenants,
   canCreateTenant,
+  canApproveRequests,
+  tenantChangeRequests,
 }: AdminTenantOperationsBoardProps) {
   return (
     <section className="rounded-[1.75rem] border border-[var(--color-line)] bg-[var(--color-panel-strong)] p-6 shadow-[var(--shadow-soft)]">
@@ -99,6 +106,12 @@ export function AdminTenantOperationsBoard({
                           className="w-40 rounded-lg border border-[var(--color-line)] bg-white px-2 py-1 text-xs text-[var(--color-ink)]"
                           required
                         />
+                        <input
+                          type="text"
+                          name="reason"
+                          placeholder="Reden (optioneel)"
+                          className="w-40 rounded-lg border border-[var(--color-line)] bg-white px-2 py-1 text-xs text-[var(--color-ink)]"
+                        />
                         <button
                           type="submit"
                           className="rounded-full border border-[var(--color-line)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-soft)]"
@@ -109,6 +122,7 @@ export function AdminTenantOperationsBoard({
                       <form action={toggleManagedTenantActiveAction}>
                         <input type="hidden" name="tenantId" value={tenant.id} />
                         <input type="hidden" name="nextActive" value={String(!tenant.isActive)} />
+                        <input type="hidden" name="reason" value={`Statuswijziging ${tenant.code}`} />
                         <button
                           type="submit"
                           className="rounded-full border border-[var(--color-line)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-soft)]"
@@ -130,6 +144,68 @@ export function AdminTenantOperationsBoard({
             ) : null}
           </tbody>
         </table>
+      </div>
+
+      <div className="mt-6 rounded-[1.25rem] border border-[var(--color-line)] bg-[var(--color-surface)] p-4">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+          Approval requests
+        </h3>
+        <p className="mt-2 text-xs text-[var(--color-muted)]">
+          Gevoelige tenantwijzigingen worden hier als request verwerkt met 2-step approval.
+        </p>
+        <div className="mt-4 space-y-3">
+          {tenantChangeRequests.map((request) => (
+            <article key={request.id} className="rounded-xl border border-[var(--color-line)] bg-white p-3 text-xs">
+              <p className="font-semibold text-[var(--color-ink)]">
+                {request.requestType} · {request.tenantLabel ?? request.tenantCode ?? request.tenantId}
+              </p>
+              <p className="mt-1 text-[var(--color-muted)]">
+                Status: {request.status} · Aangevraagd: {new Date(request.createdAt).toLocaleString("nl-BE")}
+              </p>
+              <p className="mt-1 text-[var(--color-muted)]">
+                Reden: {request.reason ?? "-"}
+              </p>
+              {request.status === "pending" && canApproveRequests ? (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <form action={approveTenantChangeRequestAction} className="flex items-center gap-2">
+                    <input type="hidden" name="requestId" value={request.id} />
+                    <input
+                      type="text"
+                      name="reason"
+                      placeholder="Approval noot (optioneel)"
+                      className="rounded-lg border border-[var(--color-line)] px-2 py-1 text-xs"
+                    />
+                    <button
+                      type="submit"
+                      className="rounded-full border border-[var(--color-line)] px-3 py-1 font-semibold text-[var(--color-ink)]"
+                    >
+                      Goedkeuren
+                    </button>
+                  </form>
+                  <form action={rejectTenantChangeRequestAction} className="flex items-center gap-2">
+                    <input type="hidden" name="requestId" value={request.id} />
+                    <input
+                      type="text"
+                      name="reason"
+                      placeholder="Verplicht bij afwijzen"
+                      className="rounded-lg border border-[var(--color-line)] px-2 py-1 text-xs"
+                      required
+                    />
+                    <button
+                      type="submit"
+                      className="rounded-full border border-[var(--color-line)] px-3 py-1 font-semibold text-[var(--color-ink)]"
+                    >
+                      Afwijzen
+                    </button>
+                  </form>
+                </div>
+              ) : null}
+            </article>
+          ))}
+          {tenantChangeRequests.length === 0 ? (
+            <p className="text-xs text-[var(--color-muted)]">Geen tenantwijzigingsverzoeken.</p>
+          ) : null}
+        </div>
       </div>
     </section>
   );

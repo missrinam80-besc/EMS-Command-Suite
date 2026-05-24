@@ -67,6 +67,7 @@ values
   ('config.patient_statuses.manage', 'Patientstatussen beheren', 'Patientstatussen beheren via de UI.'),
   ('config.users.manage', 'Gebruikers per tenant beheren', 'Gebruikers beheren binnen de eigen tenant.'),
   ('config.tenants.manage', 'Eigen tenant beheren', 'Eigen tenantgegevens beheren zonder globale database-admin rechten.'),
+  ('config.tenant_approvals.manage', 'Tenant approvals beheren', 'Tenantwijzigingsverzoeken goedkeuren of afwijzen.'),
   ('config.database.read', 'Databasebeheer openen', 'Operationeel databasebeheer en configuratie beheren.'),
   ('config.database.restart', 'Database herstart beheren', 'Herstartverzoeken en reconnect-acties registreren via de UI.')
 on conflict (code) do update
@@ -437,6 +438,9 @@ with rank_permission_matrix as (
     'config.forms.manage',
     'config.badges.manage',
     'config.patient_statuses.manage',
+    'config.users.manage',
+    'config.tenants.manage',
+    'config.tenant_approvals.manage',
     'config.database.read',
     'config.database.restart'
   ]) as permission_code
