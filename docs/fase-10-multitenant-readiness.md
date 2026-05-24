@@ -1,4 +1,4 @@
-# Fase 10: Schaalbaarheid & Multi-tenant Readiness (foundation)
+# Fase 10: Schaalbaarheid & Multi-tenant Readiness (afgerond)
 
 Opgeleverd in deze iteratie:
 
@@ -48,15 +48,16 @@ Aanvullend opgeleverd:
 - `patient_badges` via `patients.tenant_id`
 - `file_attachments` via `patients` / `medical_reports` / `meetings` / `uploaded_by`
 
-3. Tweede tenant onboarding gestart:
-- `tenant_b` aangemaakt op productie voor isolatietesten
+3. Tweede tenant onboarding en live isolatietest:
+- `tenant_b` aangemaakt op productie
+- 2 echte testaccounts gekoppeld aan aparte tenants
+- cross-tenant regressietest uitgevoerd op productie (UI + API) met geslaagde data-isolatie
 
-Nog open voor volledige fase-10 afronding:
+Fase-10 afsluitstatus (2026-05-24):
 
-1. Cross-tenant regressietests met twee echte tenant-accounts (interactieve loginflows, data-isolatie UI/API)
+1. Multi-tenant datamodel: voltooid
+2. Tenant-aware applicatieflow: voltooid
+3. Tenant-restrictive RLS hardening: voltooid
+4. Cross-tenant live regressie: voltooid
 
-Benodigd voor live activatie:
-
-1. `supabase/schema.sql` toepassen
-2. `supabase/seed.sql` toepassen
-3. (Optioneel) `NEXT_PUBLIC_DEFAULT_TENANT_CODE` instellen in Vercel env
+Geen open blokkerende fase-10 items.
