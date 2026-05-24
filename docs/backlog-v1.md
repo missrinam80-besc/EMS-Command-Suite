@@ -96,11 +96,11 @@
 ## Fase 12: delegated tenant administration & approval workflows
 
 - [x] fase-scope en implementatieplan vastgelegd
-- [ ] tenant_admin rolmodel en permissies toevoegen
-- [ ] beheersacties opsplitsen (global admin vs tenant admin)
+- [x] tenant_admin rolmodel en permissies toevoegen
+- [x] beheersacties opsplitsen (global admin vs tenant admin)
 - [ ] goedkeuringsflow voor gevoelige tenantmutaties (2-step approve)
 - [ ] audit uitbreiden met approval chain metadata
-- [ ] regressietests voor delegated admin rechtenmodel
+- [x] regressietests voor delegated admin rechtenmodel
 
 ## Fase-overgang (status 2026-05-23)
 

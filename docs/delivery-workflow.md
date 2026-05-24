@@ -21,6 +21,7 @@ Dit project werkt met de volgende vaste flow.
   - `npm run test:runtime`
   - `npm run test:e2e`
   - `npm run test:e2e:tenant` (alleen op `main` wanneer tenant test-secrets aanwezig zijn)
+  - `delegated-admin permissions e2e` (alleen op `main` wanneer delegated test-secrets aanwezig zijn)
 
 Tenant-isolatie CI-secrets (Repository secrets):
 - `E2E_TENANT_BASE_URL`
@@ -35,6 +36,17 @@ Tenant-isolatie CI-secrets (Repository secrets):
 
 Opmerking:
 - Zodra deze secrets ingevuld zijn, draait de job `e2e-cross-tenant-isolation` automatisch bij elke push naar `main`.
+
+Delegated-admin CI-secrets (Repository secrets):
+- `E2E_GLOBAL_ADMIN_EMAIL`
+- `E2E_GLOBAL_ADMIN_PASSWORD`
+- `E2E_TENANT_ADMIN_EMAIL`
+- `E2E_TENANT_ADMIN_PASSWORD`
+- `E2E_NON_ADMIN_EMAIL`
+- `E2E_NON_ADMIN_PASSWORD`
+
+Opmerking:
+- Zodra deze secrets ingevuld zijn, draait de job `e2e-delegated-admin-permissions` automatisch bij elke push naar `main`.
 
 ## 3) Deploy-policy
 

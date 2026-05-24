@@ -47,3 +47,10 @@ Fase 12 is afgerond wanneer:
 2. actions hardenen met approval-gates
 3. beheer-UI voor requests/approvals
 4. test- en runbook-updates
+
+## Voortgang (2026-05-24)
+
+- 12.1 afgerond: delegated permissies + tenant-scope hardening op beheeractions.
+- 12.2 afgerond: UI-gating voor user/tenant/rank/infra acties.
+- 12.3 afgerond: integraties/intelligence/export API tenant-aware.
+- 12.4 afgerond: e2e delegated permission-regressies toegevoegd in CI (aparte job met secrets-gate).

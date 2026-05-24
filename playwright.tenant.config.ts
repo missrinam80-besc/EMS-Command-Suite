@@ -8,7 +8,7 @@ if (!baseURL) {
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  testMatch: ["cross-tenant-isolation.spec.ts"],
+  testMatch: ["cross-tenant-isolation.spec.ts", "delegated-admin-permissions.spec.ts"],
   timeout: 45_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
