@@ -59,6 +59,14 @@
 - [x] security review (RLS/policy check, secret-rotatie, dependency audit)
 - [x] rollback-drill en release-automatie verder dichtzetten
 
+## Fase 8: data intelligence & beslissingsondersteuning
+
+- [x] KPI snapshot-laag met trends en 30d venster
+- [x] intelligence dashboard op `/beheer/intelligence`
+- [x] data quality checks + alertsignalen
+- [x] export 2.0 met datumfilters (`/api/exports/audit`, `/api/exports/reports`, `/api/exports/kpi`)
+- [x] rolgebaseerde afscherming op intelligence/export endpoints
+
 ## Fase-overgang (status 2026-05-23)
 
 Afgerond in deze iteratie:

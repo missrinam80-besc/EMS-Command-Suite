@@ -138,6 +138,12 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
           >
             Open rapporten & formulieren builder
           </Link>
+          <Link
+            href="/beheer/intelligence"
+            className="ml-3 inline-flex rounded-full border border-[var(--color-line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-soft)]"
+          >
+            Open intelligence dashboard
+          </Link>
         </div>
       </section>
 
