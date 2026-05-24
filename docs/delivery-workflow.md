@@ -20,6 +20,18 @@ Dit project werkt met de volgende vaste flow.
   - `npm run build`
   - `npm run test:runtime`
   - `npm run test:e2e`
+  - `npm run test:e2e:tenant` (alleen op `main` wanneer tenant test-secrets aanwezig zijn)
+
+Tenant-isolatie CI-secrets (Repository secrets):
+- `E2E_TENANT_BASE_URL`
+- `E2E_TENANT_A_EMAIL`
+- `E2E_TENANT_A_PASSWORD`
+- `E2E_TENANT_A_PATIENT_ID`
+- `E2E_TENANT_A_PATIENT_LABEL` (optioneel)
+- `E2E_TENANT_B_EMAIL`
+- `E2E_TENANT_B_PASSWORD`
+- `E2E_TENANT_B_PATIENT_ID`
+- `E2E_TENANT_B_PATIENT_LABEL` (optioneel)
 
 ## 3) Deploy-policy
 

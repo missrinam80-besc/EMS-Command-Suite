@@ -56,7 +56,36 @@ Bij regressie in productie:
 2. Revert of fix-forward via PR (geen directe handmatige productiepatch)
 3. Smoke-check volledig opnieuw uitvoeren na hersteldeploy
 
-## 6. Definition of done (Governance)
+## 6. Tenant lifecycle operations
+
+### Onboarding tenant
+
+1. Tenant aanmaken in `/beheer` (code + label)
+2. Tenant status op `actief` houden
+3. Testgebruiker per tenant koppelen (gebruikersbeheer, tenant-select)
+4. Minstens 1 tenant-specifieke patientrecord valideren
+5. Auditlog controleren op:
+- `tenant_created`
+- `tenant_updated` (indien aangepast)
+- `profile_created` / `profile_updated` met `tenant_id`
+
+### Offboarding tenant
+
+1. Alle actieve gebruikers uit tenant herkoppelen of deactiveren
+2. Open cases/rapporten exporteren en governance-notitie vastleggen
+3. Tenant op `inactief` zetten (default tenant mag niet gedeactiveerd worden)
+4. Bevestigen dat onboardingflow geen nieuwe users aan inactieve tenant toelaat
+
+### Tenant isolation incident response
+
+Bij mogelijke cross-tenant data leak:
+1. Incident labelen als `P1 - data isolatie`
+2. Aangetaste route/API + tenant-combinatie documenteren
+3. `e2e-cross-tenant-isolation` opnieuw draaien tegen productie
+4. Fix-forward of rollback via PR
+5. Na herstel: volledige post-deploy smoke + tenant-isolatie run opnieuw uitvoeren
+6. Incident afronden met root cause + preventiemaatregel in changelog/runbook
+## 7. Definition of done (Governance)
 
 Governance is pas afgerond wanneer:
 - CI gates afdwingbaar zijn in workflow
