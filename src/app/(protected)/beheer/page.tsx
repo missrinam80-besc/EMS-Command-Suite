@@ -6,6 +6,7 @@ import { AdminRankGroups } from "@/components/admin-rank-groups";
 import { AdminConfigCatalogs } from "@/components/admin-config-catalogs";
 import { AdminInfrastructureBoard } from "@/components/admin-infrastructure-board";
 import { AdminPlatformConfigBoard } from "@/components/admin-platform-config-board";
+import { AdminTenantOperationsBoard } from "@/components/admin-tenant-operations-board";
 import { requirePermission } from "@/lib/auth";
 import {
   getAdminAuditLogs,
@@ -19,6 +20,7 @@ import {
   getManagedPatientStatuses,
   getManagedRanks,
   getManagedTreatmentRules,
+  getManagedTenants,
   getManagedUsers,
   getManagedWarningBadges,
   getPermissionCatalog,
@@ -49,6 +51,7 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
     bodyParts,
     medicationCatalog,
     treatmentRules,
+    tenants,
     logs,
   ] = await Promise.all([
     getInfrastructureHealth(),
@@ -65,6 +68,7 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
     getManagedBodyParts(),
     getManagedMedicationCatalog(),
     getManagedTreatmentRules(),
+    getManagedTenants(),
     getAdminAuditLogs(),
   ]);
 
@@ -184,6 +188,7 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
         permissions={permissions}
         rankGroups={rankGroups}
         serviceRoleConfigured={health.serviceRoleConfigured}
+        tenants={tenants}
       />
       <AdminRankGroups ranks={ranks} rankGroups={rankGroups} permissions={permissions} />
       <AdminConfigCatalogs
@@ -199,6 +204,7 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
         medicationCatalog={medicationCatalog}
         treatmentRules={treatmentRules}
       />
+      <AdminTenantOperationsBoard tenants={tenants} />
 
       <section className="w-full">
         <AdminAuditLogBoard logs={logs} />

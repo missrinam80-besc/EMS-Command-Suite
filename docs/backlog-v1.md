@@ -84,6 +84,15 @@
 - [x] RLS policies van alle modules volledig tenant-restrictive maken
 - [x] tweede tenant onboarding + cross-tenant regressietest (live uitgevoerd en geslaagd)
 
+## Fase 11: tenant operations & governance automation
+
+- [x] fase-scope en implementatieplan vastgelegd
+- [ ] tenantbeheer in UI (aanmaken, activeren/deactiveren, metadata)
+- [ ] veilige tenant user-onboarding flow (activatie + tenant-koppeling)
+- [ ] tenant-switch/tenant-context controls voor bevoegde beheerders
+- [ ] uitgebreide cross-tenant regressiesuite (UI + API) in CI
+- [ ] operationeel runbook voor tenant lifecycle (onboarding, offboarding, incident)
+
 ## Fase-overgang (status 2026-05-23)
 
 Afgerond in deze iteratie:

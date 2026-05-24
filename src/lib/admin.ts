@@ -26,6 +26,7 @@ export type ManagedUser = {
   specializationNames: string[];
   directPermissionCodes: AppPermission[];
   inheritedPermissionCodes: AppPermission[];
+  tenantId: string | null;
 };
 
 export type RankPermissionGroup = {
@@ -186,6 +187,16 @@ export type ManagedTreatmentRule = {
   isActive: boolean;
 };
 
+export type ManagedTenant = {
+  id: string;
+  code: string;
+  label: string;
+  isActive: boolean;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 function uniquePermissions(codes: string[]): AppPermission[] {
   return [...new Set(codes)].filter((code): code is AppPermission => Boolean(code));
 }
@@ -243,7 +254,7 @@ export async function getManagedUsers(): Promise<ManagedUser[]> {
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, full_name, profile_type, call_sign, employment_status, joined_at, rank_id, ranks(code, name)")
+      .select("id, full_name, profile_type, call_sign, employment_status, joined_at, rank_id, tenant_id, ranks(code, name)")
       .order("full_name", { ascending: true }),
     supabase.from("profile_private_details").select("profile_id, email, citizenid, phone"),
     supabase.from("rank_permissions").select("rank_id, permissions(code)"),
@@ -311,6 +322,7 @@ export async function getManagedUsers(): Promise<ManagedUser[]> {
       specializationNames: specializationMap.get(profile.id) ?? [],
       directPermissionCodes: profilePermissionMap.get(profile.id) ?? [],
       inheritedPermissionCodes: profile.rank_id ? rankPermissionMap.get(profile.rank_id) ?? [] : [],
+      tenantId: profile.tenant_id ?? null,
     } satisfies ManagedUser;
   });
 }
@@ -663,6 +675,33 @@ export async function getManagedFormFields(): Promise<ManagedFormField[]> {
     isRequired: field.is_required,
     sortOrder: field.sort_order,
     isActive: field.is_active,
+  }));
+}
+
+export async function getManagedTenants(): Promise<ManagedTenant[]> {
+  if (shouldUseDemoData() || !hasSupabaseEnv()) {
+    return [];
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("tenants")
+    .select("id, code, label, is_active, is_default, created_at, updated_at")
+    .order("is_default", { ascending: false })
+    .order("code", { ascending: true });
+
+  if (error) {
+    return [];
+  }
+
+  return (data ?? []).map((tenant) => ({
+    id: tenant.id,
+    code: tenant.code,
+    label: tenant.label,
+    isActive: tenant.is_active,
+    isDefault: tenant.is_default,
+    createdAt: tenant.created_at,
+    updatedAt: tenant.updated_at,
   }));
 }
 

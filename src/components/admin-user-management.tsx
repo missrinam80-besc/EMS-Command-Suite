@@ -8,6 +8,7 @@ import {
   updateManagedUserPermissionsAction,
 } from "@/app/(protected)/beheer/actions";
 import type {
+  ManagedTenant,
   ManagedUser,
   PermissionCatalogItem,
   RankPermissionGroup,
@@ -20,6 +21,7 @@ type AdminUserManagementProps = {
   permissions: PermissionCatalogItem[];
   rankGroups: RankPermissionGroup[];
   serviceRoleConfigured: boolean;
+  tenants: ManagedTenant[];
 };
 
 function ModalShell({
@@ -88,6 +90,7 @@ export function AdminUserManagement({
   permissions,
   rankGroups,
   serviceRoleConfigured,
+  tenants,
 }: AdminUserManagementProps) {
   const [openModal, setOpenModal] = useState<ModalKey>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -124,6 +127,10 @@ export function AdminUserManagement({
   const selectedUserInheritedPermissions = selectedUser?.inheritedPermissionCodes ?? [];
   const selectedUserDirectPermissions = selectedUser?.directPermissionCodes ?? [];
   const today = new Date().toISOString().slice(0, 10);
+  const tenantLabelById = useMemo(
+    () => new Map(tenants.map((tenant) => [tenant.id, `${tenant.label} (${tenant.code})`])),
+    [tenants],
+  );
 
   return (
     <>
@@ -197,6 +204,9 @@ export function AdminUserManagement({
                       </p>
                       <p className="mt-1 text-xs text-[var(--color-muted)]">
                         In dienst: {user.joinedAt || "Niet gezet"}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--color-muted)]">
+                        Tenant: {user.tenantId ? tenantLabelById.get(user.tenantId) ?? user.tenantId : "Onbekend"}
                       </p>
                     </td>
                     <td className="px-4 py-4 align-top text-[var(--color-ink)]">
@@ -333,6 +343,20 @@ export function AdminUserManagement({
               </select>
             </label>
             <label className="grid gap-2 text-sm text-[var(--color-muted)]">
+              Tenant
+              <select
+                name="tenantId"
+                defaultValue={tenants[0]?.id ?? ""}
+                className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-accent)]"
+              >
+                {tenants.map((tenant) => (
+                  <option key={tenant.id} value={tenant.id}>
+                    {tenant.label} ({tenant.code}){tenant.isDefault ? " · default" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm text-[var(--color-muted)]">
               Roepnummer
               <input
                 name="callSign"
@@ -455,6 +479,20 @@ export function AdminUserManagement({
                 {rankOptions.map((rank) => (
                   <option key={rank.id} value={rank.id}>
                     {rank.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm text-[var(--color-muted)]">
+              Tenant
+              <select
+                name="tenantId"
+                defaultValue={selectedUser.tenantId ?? tenants[0]?.id ?? ""}
+                className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-accent)]"
+              >
+                {tenants.map((tenant) => (
+                  <option key={tenant.id} value={tenant.id}>
+                    {tenant.label} ({tenant.code}){tenant.isDefault ? " · default" : ""}
                   </option>
                 ))}
               </select>

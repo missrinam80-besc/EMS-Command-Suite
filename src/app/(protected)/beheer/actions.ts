@@ -20,6 +20,7 @@ const userSchema = z.object({
   phone: z.string().trim().optional(),
   employmentStatus: z.string().trim().min(1, "Status is verplicht."),
   joinedAt: z.string().trim().optional(),
+  tenantId: z.string().trim().optional(),
 });
 
 const permissionsSchema = z.object({
@@ -181,6 +182,30 @@ const formSectionDeleteSchema = z.object({
   targetSectionKey: z.string().trim().min(1, "Doelsectie ontbreekt."),
 });
 
+const tenantCreateSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .min(2, "Tenant code is verplicht.")
+    .regex(/^[a-z0-9_]+$/, "Gebruik enkel kleine letters, cijfers en underscore."),
+  label: z.string().trim().min(2, "Tenant label is verplicht."),
+});
+
+const tenantToggleSchema = z.object({
+  tenantId: z.string().trim().min(1, "Tenant ontbreekt."),
+  nextActive: z.boolean(),
+});
+
+const tenantUpdateSchema = z.object({
+  tenantId: z.string().trim().min(1, "Tenant ontbreekt."),
+  code: z
+    .string()
+    .trim()
+    .min(2, "Tenant code is verplicht.")
+    .regex(/^[a-z0-9_]+$/, "Gebruik enkel kleine letters, cijfers en underscore."),
+  label: z.string().trim().min(2, "Tenant label is verplicht."),
+});
+
 function checkboxToBoolean(value: FormDataEntryValue | null) {
   return value === "on" || value === "true" || value === "1";
 }
@@ -311,6 +336,7 @@ function parseUserPayload(formData: FormData) {
     phone: String(formData.get("phone") ?? ""),
     employmentStatus: String(formData.get("employmentStatus") ?? "actief"),
     joinedAt: String(formData.get("joinedAt") ?? ""),
+    tenantId: String(formData.get("tenantId") ?? ""),
   });
 }
 
@@ -332,6 +358,7 @@ export async function createManagedUserAction(formData: FormData) {
     });
 
     const adminClient = createAdminClient();
+    const tenantId = cleanOptional(parsed.tenantId) ?? (await supabase.rpc("get_default_tenant_id")).data;
     const { data: createdUser, error: createError } = await adminClient.auth.admin.createUser({
       email: parsed.email,
       password: parsed.password,
@@ -364,6 +391,7 @@ export async function createManagedUserAction(formData: FormData) {
             : null,
         employment_status: parsed.employmentStatus,
         joined_at: cleanOptional(parsed.joinedAt) ?? new Date().toISOString().slice(0, 10),
+        tenant_id: tenantId,
         created_by: session.userId,
         updated_by: session.userId,
       })
@@ -401,6 +429,7 @@ export async function createManagedUserAction(formData: FormData) {
             ? parsed.rankId
             : null,
         employmentStatus: parsed.employmentStatus,
+        tenantId,
       },
       changedFields: [
         "full_name",
@@ -409,6 +438,7 @@ export async function createManagedUserAction(formData: FormData) {
         "profile_type",
         "rank_id",
         "employment_status",
+        "tenant_id",
       ],
       context: { admin_area: "user_management" },
     });
@@ -445,7 +475,7 @@ export async function updateManagedUserAction(formData: FormData) {
 
     const { data: existingProfile } = await supabase
       .from("profiles")
-      .select("id, full_name, profile_type, call_sign, rank_id, employment_status, joined_at")
+      .select("id, full_name, profile_type, call_sign, rank_id, employment_status, joined_at, tenant_id")
       .eq("id", parsed.userId)
       .single();
     const { data: existingPrivateDetails } = await supabase
@@ -455,6 +485,7 @@ export async function updateManagedUserAction(formData: FormData) {
       .single();
 
     const adminClient = createAdminClient();
+    const tenantId = cleanOptional(parsed.tenantId) ?? (await supabase.rpc("get_default_tenant_id")).data;
     const authUpdatePayload: {
       email?: string;
       password?: string;
@@ -493,6 +524,7 @@ export async function updateManagedUserAction(formData: FormData) {
             : null,
         employment_status: parsed.employmentStatus,
         joined_at: cleanOptional(parsed.joinedAt),
+        tenant_id: tenantId,
         updated_by: session.userId,
       })
       .eq("id", parsed.userId);
@@ -536,6 +568,7 @@ export async function updateManagedUserAction(formData: FormData) {
         phone: cleanOptional(parsed.phone),
         employmentStatus: parsed.employmentStatus,
         joinedAt: cleanOptional(parsed.joinedAt),
+        tenantId,
         passwordChanged: Boolean(parsed.password),
       },
       changedFields: [
@@ -548,6 +581,7 @@ export async function updateManagedUserAction(formData: FormData) {
         "phone",
         "employment_status",
         "joined_at",
+        "tenant_id",
         ...(parsed.password ? ["password"] : []),
       ],
       context: { admin_area: "user_management", updated_by: session.userId },
@@ -1627,6 +1661,164 @@ export async function deleteFormSectionAction(formData: FormData) {
         "/beheer/rapporten-formulieren",
         "error",
         error instanceof Error ? error.message : "Sectie kon niet verwerkt worden.",
+      ),
+    );
+  }
+}
+
+export async function createManagedTenantAction(formData: FormData) {
+  try {
+    const session = await requirePermission("config.database.read");
+    const parsed = tenantCreateSchema.parse({
+      code: String(formData.get("code") ?? ""),
+      label: String(formData.get("label") ?? ""),
+    });
+    const supabase = await createSupabaseServerClient();
+
+    const { data: inserted, error } = await supabase
+      .from("tenants")
+      .insert({
+        code: parsed.code,
+        label: parsed.label,
+        is_active: true,
+        is_default: false,
+      })
+      .select("id, code, label, is_active, is_default")
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await writeAdminAudit(supabase, {
+      targetType: "tenant",
+      targetId: inserted?.id ?? null,
+      action: "tenant_created",
+      summary: `Tenant aangemaakt: ${parsed.label}`,
+      afterState: inserted ?? parsed,
+      changedFields: ["code", "label", "is_active", "is_default"],
+      adminArea: "tenant_operations",
+      updatedBy: session.userId,
+    });
+
+    redirect(buildFeedbackUrl("/beheer", "success", "Tenant aangemaakt."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer",
+        "error",
+        error instanceof Error ? error.message : "Tenant kon niet worden aangemaakt.",
+      ),
+    );
+  }
+}
+
+export async function toggleManagedTenantActiveAction(formData: FormData) {
+  try {
+    const session = await requirePermission("config.database.read");
+    const parsed = tenantToggleSchema.parse({
+      tenantId: String(formData.get("tenantId") ?? ""),
+      nextActive: checkboxToBoolean(formData.get("nextActive")),
+    });
+    const supabase = await createSupabaseServerClient();
+
+    const { data: current, error: currentError } = await supabase
+      .from("tenants")
+      .select("id, code, label, is_active, is_default")
+      .eq("id", parsed.tenantId)
+      .single();
+    if (currentError || !current) {
+      throw new Error("Tenant niet gevonden.");
+    }
+    if (current.is_default && !parsed.nextActive) {
+      throw new Error("Default tenant kan niet gedeactiveerd worden.");
+    }
+
+    const { data: updated, error } = await supabase
+      .from("tenants")
+      .update({ is_active: parsed.nextActive })
+      .eq("id", parsed.tenantId)
+      .select("id, code, label, is_active, is_default")
+      .single();
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await writeAdminAudit(supabase, {
+      targetType: "tenant",
+      targetId: parsed.tenantId,
+      action: "tenant_status_updated",
+      summary: `Tenant ${updated?.label ?? current.label} ${parsed.nextActive ? "geactiveerd" : "gedeactiveerd"}.`,
+      beforeState: current,
+      afterState: updated ?? { ...current, is_active: parsed.nextActive },
+      changedFields: ["is_active"],
+      adminArea: "tenant_operations",
+      updatedBy: session.userId,
+    });
+
+    redirect(buildFeedbackUrl("/beheer", "success", "Tenantstatus bijgewerkt."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer",
+        "error",
+        error instanceof Error ? error.message : "Tenantstatus kon niet worden bijgewerkt.",
+      ),
+    );
+  }
+}
+
+export async function updateManagedTenantAction(formData: FormData) {
+  try {
+    const session = await requirePermission("config.database.read");
+    const parsed = tenantUpdateSchema.parse({
+      tenantId: String(formData.get("tenantId") ?? ""),
+      code: String(formData.get("code") ?? ""),
+      label: String(formData.get("label") ?? ""),
+    });
+    const supabase = await createSupabaseServerClient();
+
+    const { data: current, error: currentError } = await supabase
+      .from("tenants")
+      .select("id, code, label, is_active, is_default")
+      .eq("id", parsed.tenantId)
+      .single();
+    if (currentError || !current) {
+      throw new Error("Tenant niet gevonden.");
+    }
+    if (current.is_default && parsed.code !== current.code) {
+      throw new Error("Default tenant code kan niet aangepast worden.");
+    }
+
+    const { data: updated, error } = await supabase
+      .from("tenants")
+      .update({ code: parsed.code, label: parsed.label })
+      .eq("id", parsed.tenantId)
+      .select("id, code, label, is_active, is_default")
+      .single();
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await writeAdminAudit(supabase, {
+      targetType: "tenant",
+      targetId: parsed.tenantId,
+      action: "tenant_updated",
+      summary: `Tenant bijgewerkt: ${updated?.label ?? parsed.label}`,
+      beforeState: current,
+      afterState: updated ?? parsed,
+      changedFields: ["code", "label"],
+      adminArea: "tenant_operations",
+      updatedBy: session.userId,
+    });
+
+    redirect(buildFeedbackUrl("/beheer", "success", "Tenant bijgewerkt."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer",
+        "error",
+        error instanceof Error ? error.message : "Tenant kon niet worden bijgewerkt.",
       ),
     );
   }
