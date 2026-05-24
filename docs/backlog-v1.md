@@ -87,11 +87,20 @@
 ## Fase 11: tenant operations & governance automation
 
 - [x] fase-scope en implementatieplan vastgelegd
-- [ ] tenantbeheer in UI (aanmaken, activeren/deactiveren, metadata)
-- [ ] veilige tenant user-onboarding flow (activatie + tenant-koppeling)
-- [ ] tenant-switch/tenant-context controls voor bevoegde beheerders
-- [ ] uitgebreide cross-tenant regressiesuite (UI + API) in CI
-- [ ] operationeel runbook voor tenant lifecycle (onboarding, offboarding, incident)
+- [x] tenantbeheer in UI (aanmaken, activeren/deactiveren, metadata)
+- [x] veilige tenant user-onboarding flow (activatie + tenant-koppeling)
+- [x] tenant-switch/tenant-context controls voor bevoegde beheerders
+- [x] uitgebreide cross-tenant regressiesuite (UI + API) in CI
+- [x] operationeel runbook voor tenant lifecycle (onboarding, offboarding, incident)
+
+## Fase 12: delegated tenant administration & approval workflows
+
+- [x] fase-scope en implementatieplan vastgelegd
+- [ ] tenant_admin rolmodel en permissies toevoegen
+- [ ] beheersacties opsplitsen (global admin vs tenant admin)
+- [ ] goedkeuringsflow voor gevoelige tenantmutaties (2-step approve)
+- [ ] audit uitbreiden met approval chain metadata
+- [ ] regressietests voor delegated admin rechtenmodel
 
 ## Fase-overgang (status 2026-05-23)
 

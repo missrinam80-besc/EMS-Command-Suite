@@ -1,6 +1,6 @@
 # Fase 11: Tenant Operations & Governance Automation
 
-Status: gestart op 2026-05-24
+Status: afgerond op 2026-05-24
 
 ## Doel
 
@@ -49,3 +49,24 @@ Fase 11 is afgerond wanneer:
 2. onboardingflow hardening + audit
 3. CI regressiepipeline voor tenant-isolatie
 4. runbook en overdracht
+
+## Oplevering
+
+1. Tenantbeheer in `/beheer`:
+- tenant aanmaken
+- tenant code/label bewerken
+- tenant actief/inactief zetten
+- default tenant beveiligd tegen deactivatie
+
+2. Onboarding hardening:
+- gebruiker krijgt tenantkoppeling bij create/update
+- enkel actieve tenants zijn selecteerbaar in onboarding UI
+- server-side guardrail blokkeert inactieve tenantselectie
+
+3. CI tenant-isolatie:
+- aparte Playwright lane `test:e2e:tenant`
+- workflow gate `e2e-cross-tenant-isolation` op `main` wanneer secrets aanwezig zijn
+
+4. Governance:
+- tenant lifecycle runbook toegevoegd (onboarding/offboarding/incident)
+- release workflow robuuster gemaakt voor env/runtime randgevallen
