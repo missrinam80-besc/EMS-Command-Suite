@@ -1,6 +1,6 @@
 # Fase 13: Specialisatiegebonden Rechtenmatrix & Operationele Restricties
 
-Status: gestart op 2026-05-25
+Status: afgerond op 2026-05-25
 
 ## Doel
 
@@ -89,3 +89,12 @@ Fase 13 is afgerond wanneer:
 3. audittrail specialization wijzigingen volledig logt
 4. CI regressies specialisatiegrenzen afdwingen
 5. productie smoke-run PASS is op specialization grants/revokes en enforcement
+
+## Oplevering (2026-05-25)
+
+- specialization matrix geactiveerd in `supabase/seed.sql` via `specialization_permissions`
+- runtime session resolver combineert nu directe rechten + rangrechten + specialisatierechten
+- specialization-aware report-edit guard toegevoegd (`reports.trauma.manage`, `reports.opname.manage`)
+- beheer-UI toegevoegd voor specialization permission groups
+- audit event toegevoegd bij specialization grant/revoke updates (`specialization_permissions_updated`)
+- runtime regressietest uitgebreid met nieuwe specialization permission codes

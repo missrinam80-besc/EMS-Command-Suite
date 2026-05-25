@@ -48,6 +48,8 @@ values
   ('reports.create', 'Rapporten aanmaken', 'Nieuwe rapporten aanmaken.'),
   ('reports.update', 'Rapporten bewerken', 'Alle rapporten bewerken.'),
   ('reports.update_own', 'Eigen rapporten bewerken', 'Alleen eigen rapporten bewerken.'),
+  ('reports.trauma.manage', 'Traumarapporten beheren', 'Traumarapporten aanmaken en bewerken volgens specialisatiebevoegdheid.'),
+  ('reports.opname.manage', 'Opnamerapporten beheren', 'Opnamerapporten aanmaken en bewerken volgens specialisatiebevoegdheid.'),
   ('meetings.read', 'Meetings bekijken', 'Meetingaanvragen en planning bekijken.'),
   ('meetings.create', 'Meetings aanvragen', 'Nieuwe meetingaanvragen registreren.'),
   ('meetings.update', 'Meetings beheren', 'Planning, status en actiepunten beheren.'),
@@ -421,6 +423,8 @@ with rank_permission_matrix as (
     'reports.read',
     'reports.create',
     'reports.update',
+    'reports.trauma.manage',
+    'reports.opname.manage',
     'meetings.read',
     'meetings.create',
     'meetings.update',
@@ -589,6 +593,22 @@ join public.permissions on permissions.code = spm.permission_code
 where profiles.rank_id is null
 on conflict do nothing;
 
--- Voorbereid, maar nog bewust leeg:
--- specialisatiegebonden extra rechten worden later ingevuld via public.specialization_permissions
--- zodra de rechtenmatrix per specialisatie definitief is.
+with specialization_permission_matrix as (
+  select 'spoed_trauma'::text as specialization_code, 'reports.trauma.manage'::text as permission_code, 'basisbevoegd'::public.specialization_level as minimum_level
+  union all
+  select 'mug', 'reports.trauma.manage', 'basisbevoegd'::public.specialization_level
+  union all
+  select 'chirurgie', 'reports.trauma.manage', 'bevoegd'::public.specialization_level
+  union all
+  select 'ambulance', 'reports.opname.manage', 'basisbevoegd'::public.specialization_level
+  union all
+  select 'pit', 'reports.opname.manage', 'basisbevoegd'::public.specialization_level
+  union all
+  select 'diagnostiek', 'reports.opname.manage', 'bevoegd'::public.specialization_level
+)
+insert into public.specialization_permissions (specialization_id, permission_id, minimum_level)
+select s.id, p.id, spm.minimum_level
+from specialization_permission_matrix spm
+join public.specializations s on s.code = spm.specialization_code
+join public.permissions p on p.code = spm.permission_code
+on conflict do nothing;

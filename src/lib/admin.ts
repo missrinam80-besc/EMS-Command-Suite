@@ -197,6 +197,14 @@ export type ManagedTenant = {
   updatedAt: string;
 };
 
+export type SpecializationPermissionGroup = {
+  specializationId: string;
+  specializationCode: string;
+  specializationName: string;
+  minimumRankCode: string | null;
+  permissionCodes: AppPermission[];
+};
+
 export type TenantChangeRequest = {
   id: string;
   tenantId: string;
@@ -402,6 +410,44 @@ export async function getManagedRanks(): Promise<ManagedRank[]> {
     description: rank.description,
     isActive: rank.is_active,
   }));
+}
+
+export async function getSpecializationPermissionGroups(): Promise<SpecializationPermissionGroup[]> {
+  if (shouldUseDemoData() || !hasSupabaseEnv()) {
+    return [];
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const [{ data: specs, error: specsError }, { data: specPermissions, error: permsError }] =
+    await Promise.all([
+      supabase.from("specializations").select("id, code, name, minimum_rank_id, ranks(code)").order("name"),
+      supabase.from("specialization_permissions").select("specialization_id, permissions(code)"),
+    ]);
+
+  if (specsError || permsError) {
+    return [];
+  }
+
+  const permissionMap = new Map<string, AppPermission[]>();
+  for (const row of specPermissions ?? []) {
+    const existing = permissionMap.get(row.specialization_id) ?? [];
+    permissionMap.set(
+      row.specialization_id,
+      uniquePermissions([...existing, ...flattenPermissionCodes([row])]),
+    );
+  }
+
+  return (specs ?? []).map((item) => {
+    const rankRelation = item.ranks as { code?: string } | { code?: string }[] | null;
+    const rank = Array.isArray(rankRelation) ? rankRelation[0] : rankRelation;
+    return {
+      specializationId: item.id,
+      specializationCode: item.code,
+      specializationName: item.name,
+      minimumRankCode: rank?.code ?? null,
+      permissionCodes: permissionMap.get(item.id) ?? [],
+    } satisfies SpecializationPermissionGroup;
+  });
 }
 
 async function getManagedCatalog(

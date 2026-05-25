@@ -17,6 +17,8 @@ export const ALL_PERMISSION_CODES = [
   "reports.create",
   "reports.update",
   "reports.update_own",
+  "reports.trauma.manage",
+  "reports.opname.manage",
   "meetings.read",
   "meetings.create",
   "meetings.update",
@@ -52,6 +54,7 @@ export type AppSession = {
   rankLabel: string;
   rankCode?: string | null;
   profileType?: string;
+  specializationCodes?: string[];
   permissions: AppPermission[];
 };
 
@@ -82,6 +85,7 @@ export async function getAppSession(): Promise<AppSession | null> {
         rankLabel: "Leiding",
         rankCode: "rank_1",
         profileType: "medical_staff",
+        specializationCodes: [],
         permissions: [...ALL_PERMISSION_CODES],
       };
     }
@@ -103,6 +107,7 @@ export async function getAppSession(): Promise<AppSession | null> {
     { data: profile },
     { data: privateDetails },
     { data: directPermissions },
+    { data: profileSpecializations },
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -118,7 +123,27 @@ export async function getAppSession(): Promise<AppSession | null> {
       .from("profile_permissions")
       .select("permissions(code)")
       .eq("profile_id", user.id),
+    supabase
+      .from("profile_specializations")
+      .select("specialization_id, level, specializations(code)")
+      .eq("profile_id", user.id),
   ]);
+
+  const specializationIds = (profileSpecializations ?? [])
+    .map((entry) => entry.specialization_id)
+    .filter((value): value is string => Boolean(value));
+  const { data: specializationPermissions } = specializationIds.length
+    ? await supabase
+        .from("specialization_permissions")
+        .select("specialization_id, minimum_level, permissions(code)")
+        .in("specialization_id", specializationIds)
+    : {
+        data: [] as Array<{
+          specialization_id: string;
+          minimum_level: "geen" | "basisbevoegd" | "bevoegd" | "instructeur";
+          permissions: { code?: string } | { code?: string }[] | null;
+        }>,
+      };
 
   const rankId = profile?.rank_id ?? null;
   const { data: rankPermissions } = rankId
@@ -161,6 +186,33 @@ export async function getAppSession(): Promise<AppSession | null> {
     }
   }
 
+  const levelValue: Record<string, number> = {
+    geen: 0,
+    basisbevoegd: 1,
+    bevoegd: 2,
+    instructeur: 3,
+  };
+  const specializationLevelById = new Map<string, number>();
+  for (const entry of profileSpecializations ?? []) {
+    const level = String(entry.level ?? "geen");
+    specializationLevelById.set(entry.specialization_id, levelValue[level] ?? 0);
+  }
+  for (const entry of specializationPermissions ?? []) {
+    const actorLevel = specializationLevelById.get(entry.specialization_id) ?? 0;
+    const minimumLevel = levelValue[String(entry.minimum_level ?? "instructeur")] ?? 99;
+    if (actorLevel < minimumLevel) {
+      continue;
+    }
+    const permission = entry.permissions as { code?: string } | { code?: string }[] | null;
+    if (Array.isArray(permission)) {
+      if (permission[0]?.code) {
+        permissionCodes.add(permission[0].code);
+      }
+    } else if (permission?.code) {
+      permissionCodes.add(permission.code);
+    }
+  }
+
   const resolvedCitizenId =
     privateDetails?.citizenid ?? (user.user_metadata.citizenid as string | undefined) ?? "";
   const hasActivatedProfile = Boolean(
@@ -182,6 +234,13 @@ export async function getAppSession(): Promise<AppSession | null> {
     rankLabel: rankRecord?.name ?? (user.user_metadata.rank_label as string | undefined) ?? "EMS",
     rankCode: rankRecord?.code ?? null,
     profileType: profileRecord?.profile_type ?? "medical_staff",
+    specializationCodes: (profileSpecializations ?? [])
+      .map((entry) => {
+        const relation = entry.specializations as { code?: string } | { code?: string }[] | null;
+        const item = Array.isArray(relation) ? relation[0] : relation;
+        return item?.code ?? "";
+      })
+      .filter(Boolean),
     permissions: [...permissionCodes].filter((code): code is AppPermission =>
       ALL_PERMISSION_CODES.includes(code as AppPermission),
     ),
@@ -227,6 +286,11 @@ export async function requireReportEditAccess(params: {
   forbiddenRedirectPath: string;
 }) {
   const session = await requireAnyPermission(["reports.update", "reports.update_own"]);
+  const specializationPermission =
+    params.reportType === "trauma" ? "reports.trauma.manage" : "reports.opname.manage";
+  if (!hasPermission(session, specializationPermission) && !hasPermission(session, "config.database.read")) {
+    redirect(params.forbiddenRedirectPath);
+  }
   if (hasPermission(session, "reports.update")) {
     return session;
   }

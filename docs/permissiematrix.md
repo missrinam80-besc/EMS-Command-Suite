@@ -17,6 +17,8 @@ Dit document volgt de actuele runtime-permissies in de app en vervangt oudere ca
 - `reports.create`
 - `reports.update`
 - `reports.update_own`
+- `reports.trauma.manage`
+- `reports.opname.manage`
 - `meetings.read`
 - `meetings.create`
 - `meetings.update`
@@ -86,6 +88,9 @@ Dit document volgt de actuele runtime-permissies in de app en vervangt oudere ca
 
 - Detailacties blijven aanvullend beschermd met pagina/action-specifieke checks.
 - `reports.update_own` laat alleen bewerken toe van rapporten waarvan `author_profile_id` gelijk is aan de ingelogde gebruiker.
+- Rapportbewerking vereist aanvullend specializationbeheer:
+  - trauma: `reports.trauma.manage`
+  - opname: `reports.opname.manage`
 - Rechten worden geladen uit Supabase via:
   - directe rechten: `profile_permissions`
   - geerfde rechten: `rank_permissions`

@@ -6,4 +6,6 @@ test("tenant admin permission codes are available in runtime allowlist", () => {
   assert.ok(ALL_PERMISSION_CODES.includes("config.users.manage"));
   assert.ok(ALL_PERMISSION_CODES.includes("config.tenants.manage"));
   assert.ok(ALL_PERMISSION_CODES.includes("config.tenant_approvals.manage"));
+  assert.ok(ALL_PERMISSION_CODES.includes("reports.trauma.manage"));
+  assert.ok(ALL_PERMISSION_CODES.includes("reports.opname.manage"));
 });

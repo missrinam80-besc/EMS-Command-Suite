@@ -40,6 +40,11 @@ const rankPermissionSchema = z.object({
   permissionIds: z.array(z.string().trim()).default([]),
 });
 
+const specializationPermissionSchema = z.object({
+  specializationId: z.string().trim().min(1, "Specialisatie ontbreekt."),
+  permissionIds: z.array(z.string().trim()).default([]),
+});
+
 const reportTypeCreateSchema = z.object({
   code: z.string().trim().min(2, "Code is verplicht."),
   label: z.string().trim().min(2, "Label is verplicht."),
@@ -896,6 +901,63 @@ export async function createReportTypeAction(formData: FormData) {
         "/beheer/rapporten-formulieren",
         "error",
         error instanceof Error ? error.message : "Rapporttype kon niet worden aangemaakt.",
+      ),
+    );
+  }
+}
+
+export async function updateSpecializationPermissionGroupAction(formData: FormData) {
+  try {
+    const session = await requirePermission("config.database.read");
+    const parsed = specializationPermissionSchema.parse({
+      specializationId: String(formData.get("specializationId") ?? ""),
+      permissionIds: formData.getAll("permissionIds").map(String),
+    });
+
+    const supabase = await createSupabaseServerClient();
+    const { data: currentPermissions } = await supabase
+      .from("specialization_permissions")
+      .select("permission_id")
+      .eq("specialization_id", parsed.specializationId);
+    await supabase
+      .from("specialization_permissions")
+      .delete()
+      .eq("specialization_id", parsed.specializationId);
+
+    if (parsed.permissionIds.length) {
+      const { error } = await supabase.from("specialization_permissions").insert(
+        parsed.permissionIds.map((permissionId) => ({
+          specialization_id: parsed.specializationId,
+          permission_id: permissionId,
+          minimum_level: "basisbevoegd",
+        })),
+      );
+
+      if (error) {
+        throw new Error(error.message);
+      }
+    }
+
+    await writeAuditLog(supabase, {
+      targetType: "specialization_permissions",
+      targetId: parsed.specializationId,
+      action: "specialization_permissions_updated",
+      summary: "Specialisatie-rechtengroep bijgewerkt.",
+      beforeState: {
+        permissionIds: (currentPermissions ?? []).map((item) => item.permission_id),
+      },
+      afterState: { permissionIds: parsed.permissionIds },
+      changedFields: ["specialization_permissions"],
+      context: { admin_area: "specialization_permissions", updated_by: session.userId },
+    });
+
+    redirect(buildFeedbackUrl("/beheer", "success", "Specialisatie-rechten bijgewerkt."));
+  } catch (error) {
+    redirect(
+      buildFeedbackUrl(
+        "/beheer",
+        "error",
+        error instanceof Error ? error.message : "Specialisatie-rechten konden niet worden bijgewerkt.",
       ),
     );
   }

@@ -104,13 +104,13 @@
 
 ## Fase 13: specialisatiegebonden rechtenmatrix & operationele restricties
 
-- [ ] fase-scope en implementatieplan vastleggen
-- [ ] specialisatie-permissiematrix functioneel finaliseren per rol/specialisatie
-- [ ] runtime permission-resolver uitbreiden met specialization overrides
-- [ ] module/action-guards uitbreiden met specialization-aware checks
-- [ ] beheer-UI voor specialization-permission toekenning + validatie
-- [ ] audittrail uitbreiden met specialization grant/revoke events
-- [ ] regressietests (unit + e2e) voor specialization privilege boundaries
+- [x] fase-scope en implementatieplan vastleggen
+- [x] specialisatie-permissiematrix functioneel finaliseren per rol/specialisatie
+- [x] runtime permission-resolver uitbreiden met specialization overrides
+- [x] module/action-guards uitbreiden met specialization-aware checks
+- [x] beheer-UI voor specialization-permission toekenning + validatie
+- [x] audittrail uitbreiden met specialization grant/revoke events
+- [x] regressietests (unit + e2e) voor specialization privilege boundaries
 
 ## Fase-overgang (status 2026-05-23)
 

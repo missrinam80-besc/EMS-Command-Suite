@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AdminAuditLogBoard } from "@/components/admin-audit-log-board";
 import { AdminUserManagement } from "@/components/admin-user-management";
 import { AdminRankGroups } from "@/components/admin-rank-groups";
+import { AdminSpecializationGroups } from "@/components/admin-specialization-groups";
 import { AdminConfigCatalogs } from "@/components/admin-config-catalogs";
 import { AdminInfrastructureBoard } from "@/components/admin-infrastructure-board";
 import { AdminPlatformConfigBoard } from "@/components/admin-platform-config-board";
@@ -23,6 +24,7 @@ import {
   getTenantChangeRequests,
   getManagedTenants,
   getManagedUsers,
+  getSpecializationPermissionGroups,
   getManagedWarningBadges,
   getPermissionCatalog,
   getRankPermissionGroups,
@@ -55,6 +57,7 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
     ranks,
     permissions,
     rankGroups,
+    specializationGroups,
     warningBadges,
     patientStatuses,
     hospitalConfig,
@@ -73,6 +76,7 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
     getManagedRanks(),
     getPermissionCatalog(),
     getRankPermissionGroups(),
+    getSpecializationPermissionGroups(),
     getManagedWarningBadges(),
     getManagedPatientStatuses(),
     getManagedHospitalConfig(),
@@ -214,7 +218,10 @@ export default async function BeheerPage({ searchParams }: BeheerPageProps) {
         />
       ) : null}
       {canManageRanks ? (
-        <AdminRankGroups ranks={ranks} rankGroups={rankGroups} permissions={permissions} />
+        <>
+          <AdminRankGroups ranks={ranks} rankGroups={rankGroups} permissions={permissions} />
+          <AdminSpecializationGroups groups={specializationGroups} permissions={permissions} />
+        </>
       ) : null}
       <AdminConfigCatalogs
         warningBadges={warningBadges}
