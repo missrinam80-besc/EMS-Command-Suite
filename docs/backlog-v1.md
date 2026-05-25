@@ -102,6 +102,16 @@
 - [x] audit uitbreiden met approval chain metadata
 - [x] regressietests voor delegated admin rechtenmodel
 
+## Fase 13: specialisatiegebonden rechtenmatrix & operationele restricties
+
+- [ ] fase-scope en implementatieplan vastleggen
+- [ ] specialisatie-permissiematrix functioneel finaliseren per rol/specialisatie
+- [ ] runtime permission-resolver uitbreiden met specialization overrides
+- [ ] module/action-guards uitbreiden met specialization-aware checks
+- [ ] beheer-UI voor specialization-permission toekenning + validatie
+- [ ] audittrail uitbreiden met specialization grant/revoke events
+- [ ] regressietests (unit + e2e) voor specialization privilege boundaries
+
 ## Fase-overgang (status 2026-05-23)
 
 Afgerond in deze iteratie:
