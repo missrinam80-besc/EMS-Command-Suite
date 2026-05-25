@@ -22,6 +22,7 @@ Dit project werkt met de volgende vaste flow.
   - `npm run test:e2e`
   - `npm run test:e2e:tenant` (alleen op `main` wanneer tenant test-secrets aanwezig zijn)
   - `delegated-admin permissions e2e` (alleen op `main` wanneer delegated test-secrets aanwezig zijn)
+  - `specialization permission boundaries e2e` (alleen op `main` wanneer specialization test-secrets aanwezig zijn)
 
 Tenant-isolatie CI-secrets (Repository secrets):
 - `E2E_TENANT_BASE_URL`
@@ -47,6 +48,17 @@ Delegated-admin CI-secrets (Repository secrets):
 
 Opmerking:
 - Zodra deze secrets ingevuld zijn, draait de job `e2e-delegated-admin-permissions` automatisch bij elke push naar `main`.
+
+Specialization CI-secrets (Repository secrets):
+- `E2E_SPEC_TRAUMA_ALLOWED_EMAIL`
+- `E2E_SPEC_TRAUMA_ALLOWED_PASSWORD`
+- `E2E_SPEC_TRAUMA_BLOCKED_EMAIL`
+- `E2E_SPEC_TRAUMA_BLOCKED_PASSWORD`
+- `E2E_SPEC_TRAUMA_PATIENT_ID`
+- `E2E_SPEC_TRAUMA_REPORT_ID`
+
+Opmerking:
+- Zodra deze secrets ingevuld zijn, draait de job `e2e-specialization-permission-boundaries` automatisch bij elke push naar `main`.
 
 ## 3) Deploy-policy
 
